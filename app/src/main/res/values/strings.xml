@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dispo</string>
+    <string name="widget_label">Bouton Dispo</string>
+    <string name="widget_description">Dis à tes potes que tu es dispo, en un tap.</string>
+</resources>
