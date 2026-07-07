@@ -43,11 +43,6 @@ import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.ui.theme.SunYellow
 import kotlin.math.hypot
 
-/**
- * Contenu de la page d'accueil. Le fond tornade Looney Tunes est dessiné
- * plein écran par [LooneyRings] au niveau de l'activité (derrière les
- * barres système et les onglets).
- */
 @Composable
 fun HomePanel(
     state: DispoUiState,
@@ -127,9 +122,10 @@ fun HomePanel(
 }
 
 /**
- * Fond plein écran façon intro Looney Tunes : anneaux concentriques
- * rouge/bordeaux qui se dilatent lentement depuis le centre,
- * avec un cœur jaune/orangé derrière le bouton.
+ * Fond façon intro Looney Tunes : anneaux concentriques rouge/bordeaux
+ * qui se dilatent depuis le centre, avec un cœur jaune/orangé derrière
+ * le bouton. Dessiné plein écran (derrière la barre de statut et les
+ * onglets) par [com.dispo.app.DispoApp].
  */
 @Composable
 fun LooneyRings(modifier: Modifier = Modifier) {

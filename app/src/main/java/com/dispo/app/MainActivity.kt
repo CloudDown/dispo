@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.dispo.app.core.DispoRepository
 import com.dispo.app.ui.ChatPanel
 import com.dispo.app.ui.HomePanel
+import com.dispo.app.ui.LooneyRings
 import com.dispo.app.ui.MapScreen
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.CircusRedDark
@@ -103,10 +104,21 @@ fun DispoApp() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
-            .safeDrawingPadding(),
+            .background(backgroundColor),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // Tornade Looney Tunes plein écran (derrière la barre de statut
+        // et les onglets), qui s'estompe quand on glisse vers le chat
+        val homeVisibility =
+            1f - (pagerState.currentPage + pagerState.currentPageOffsetFraction).coerceIn(0f, 1f)
+        if (homeVisibility > 0f) {
+            LooneyRings(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = homeVisibility },
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.weight(1f),
@@ -144,16 +156,6 @@ fun DispoApp() {
                         1 -> ChatPanel(
                             state = state,
                             onSend = { text -> repository.sendMessage(text) },
-                            onShareLocation = {
-                                // MVP : partage un lieu fixe de démo (centre-ville).
-                                // À remplacer par la position réelle / un picker.
-                                repository.sendMessage(
-                                    "On se retrouve ici !",
-                                    lat = 45.5088,
-                                    lon = -73.5617,
-                                )
-                                mapOpen = true
-                            },
                             onOpenMap = { mapOpen = true },
                         )
                     }
@@ -218,6 +220,9 @@ fun DispoApp() {
         ) {
             MapScreen(
                 pins = state.messages.filter { it.hasLocation },
+                onPickLocation = { lat, lon ->
+                    repository.sendMessage("On se retrouve ici !", lat = lat, lon = lon)
+                },
                 onClose = { mapOpen = false },
             )
         }

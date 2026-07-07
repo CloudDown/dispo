@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -58,13 +61,13 @@ import java.util.Locale
 
 /**
  * Page Chat : plein écran. Les messages avec un lieu (📍) sont cliquables
- * et ouvrent la carte plein écran via [onOpenMap].
+ * et ouvrent la carte plein écran via [onOpenMap] ; le bouton 📍 aussi,
+ * pour choisir un lieu en tapant directement la carte.
  */
 @Composable
 fun ChatPanel(
     state: DispoUiState,
     onSend: (String) -> Unit,
-    onShareLocation: () -> Unit,
     onOpenMap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -114,6 +117,12 @@ fun ChatPanel(
         Spacer(Modifier.height(10.dp))
 
         var draft by remember { mutableStateOf("") }
+        val sendDraft = {
+            if (draft.isNotBlank()) {
+                onSend(draft.trim())
+                draft = ""
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = draft,
@@ -122,6 +131,8 @@ fun ChatPanel(
                 placeholder = { Text("Écris un message…", color = InkBrown.copy(alpha = 0.5f)) },
                 singleLine = true,
                 shape = RoundedCornerShape(24.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { sendDraft() }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = CircusRed,
                     unfocusedBorderColor = InkBrown,
@@ -131,7 +142,7 @@ fun ChatPanel(
             )
             Spacer(Modifier.width(6.dp))
             Button(
-                onClick = onShareLocation,
+                onClick = onOpenMap,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
                 border = BorderStroke(3.dp, InkBrown),
@@ -139,22 +150,6 @@ fun ChatPanel(
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text("📍", fontSize = 20.sp)
-            }
-            Spacer(Modifier.width(6.dp))
-            Button(
-                onClick = {
-                    if (draft.isNotBlank()) {
-                        onSend(draft.trim())
-                        draft = ""
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
-                border = BorderStroke(3.dp, InkBrown),
-                modifier = Modifier.size(52.dp),
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text("🚀", fontSize = 20.sp)
             }
         }
     }
