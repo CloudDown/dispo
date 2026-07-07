@@ -23,9 +23,9 @@ App Android pour dire à tes potes que tu es dispo jusqu'à la fin de la journé
 | Liste d'amis | Léa, Max et Sam simulés en mémoire (démo locale) |
 | Déverrouillage chat | Le chat s'ouvre dès que 2 personnes sont dispos |
 | Réponse auto | Léa répond quelques secondes après ton premier tap (démo) |
-| Carte | OpenStreetMap (osmdroid), pins partagés depuis le chat |
+| Carte | OpenStreetMap plein écran (osmdroid), zoom au pincement, pins partagés |
 | Widget | Jetpack Glance — toggle dispo depuis l'écran d'accueil |
-| Navigation | 3 panneaux en swipe : Dispo · Chat · Carte |
+| Navigation | 2 pages en swipe : Dispo · Chat & Carte (chat repliable posé sur la map) |
 
 ### Interface cirque
 
@@ -50,15 +50,15 @@ App Android pour dire à tes potes que tu es dispo jusqu'à la fin de la journé
 
 ```
 app/src/main/java/com/dispo/app/
-├── MainActivity.kt           # Pager 3 panneaux + onglets fanions
+├── MainActivity.kt           # Pager 2 pages + onglets fanions + transitions
 ├── core/
 │   ├── Models.kt            # Friend, ChatMessage, DispoUiState
 │   └── DispoRepository.kt   # État local, expiration minuit, démo amis
 ├── ui/
 │   ├── DispoButton.kt       # Bouton animé cercles Looney Tunes
 │   ├── HomePanel.kt         # Accueil + anneaux animés
-│   ├── ChatPanel.kt         # Chat verrouillé / déverrouillé
-│   ├── MapPanel.kt          # Carte osmdroid + pins
+│   ├── ChatPanel.kt         # Chat repliable posé sur la carte plein écran
+│   ├── MapPanel.kt          # CircusMap : osmdroid teinté + pins cirque
 │   ├── LedText.kt           # Composants panneau LED
 │   └── theme/Theme.kt       # Palette cirque (rouge, crème, ambre…)
 └── widget/

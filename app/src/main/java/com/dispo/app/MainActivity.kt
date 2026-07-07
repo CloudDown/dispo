@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,19 +33,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.DispoRepository
 import com.dispo.app.ui.ChatPanel
 import com.dispo.app.ui.HomePanel
-import com.dispo.app.ui.MapPanel
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.CircusRedDark
 import com.dispo.app.ui.theme.Cream
 import com.dispo.app.ui.theme.DispoTheme
 import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.widget.DispoWidget
+import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -66,14 +68,15 @@ fun DispoApp() {
     val state by repository.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val pagerState = rememberPagerState(pageCount = { 3 })
-    val tabs = listOf("😀 DISPO", "💬 CHAT", "🗺️ CARTE")
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val tabs = listOf("😀 DISPO", "💬 CHAT & CARTE")
+    val pageTransition = tween<Float>(durationMillis = 550, easing = FastOutSlowInEasing)
 
     // Ouvre le chat automatiquement quand il se déverrouille
     val previousUnlocked = remember { mutableStateOf(state.chatUnlocked) }
     LaunchedEffect(state.chatUnlocked) {
         if (state.chatUnlocked && !previousUnlocked.value) {
-            pagerState.animateScrollToPage(1)
+            pagerState.animateScrollToPage(1, animationSpec = pageTransition)
         }
         previousUnlocked.value = state.chatUnlocked
     }
@@ -94,32 +97,51 @@ fun DispoApp() {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.weight(1f),
+            beyondViewportPageCount = 1,
         ) { page ->
-            when (page) {
-                0 -> HomePanel(
-                    state = state,
-                    onToggle = {
-                        scope.launch {
-                            repository.toggleMeDispo()
-                            DispoWidget.refreshAll(context)
-                        }
+            // Parallaxe + fondu + léger zoom pendant le swipe
+            val pageOffset =
+                ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction)
+                    .absoluteValue
+                    .coerceIn(0f, 1f)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val visibility = 1f - pageOffset
+                        alpha = 0.35f + 0.65f * visibility
+                        val scale = 0.92f + 0.08f * visibility
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = pageOffset * size.width * 0.08f *
+                            if (page < pagerState.currentPage) -1f else 1f
                     },
-                )
-                1 -> ChatPanel(
-                    state = state,
-                    onSend = { text -> repository.sendMessage(text) },
-                    onShareLocation = {
-                        // MVP : partage un lieu fixe de démo (centre-ville).
-                        // À remplacer par la position réelle / un picker.
-                        repository.sendMessage(
-                            "On se retrouve ici !",
-                            lat = 45.5088,
-                            lon = -73.5617,
-                        )
-                        scope.launch { pagerState.animateScrollToPage(2) }
-                    },
-                )
-                2 -> MapPanel(state = state)
+            ) {
+                when (page) {
+                    0 -> HomePanel(
+                        state = state,
+                        onToggle = {
+                            scope.launch {
+                                repository.toggleMeDispo()
+                                DispoWidget.refreshAll(context)
+                            }
+                        },
+                    )
+                    1 -> ChatPanel(
+                        state = state,
+                        onSend = { text -> repository.sendMessage(text) },
+                        onShareLocation = {
+                            // MVP : partage un lieu fixe de démo (centre-ville).
+                            // À remplacer par la position réelle / un picker.
+                            repository.sendMessage(
+                                "On se retrouve ici !",
+                                lat = 45.5088,
+                                lon = -73.5617,
+                            )
+                        },
+                    )
+                }
             }
         }
 
@@ -153,7 +175,12 @@ fun DispoApp() {
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) {
-                            scope.launch { pagerState.animateScrollToPage(index) }
+                            scope.launch {
+                                pagerState.animateScrollToPage(
+                                    index,
+                                    animationSpec = pageTransition,
+                                )
+                            }
                         }
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center,

@@ -1,10 +1,20 @@
 package com.dispo.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +62,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Page Chat + Carte : la carte occupe tout l'écran, le chat vient
+ * se poser par-dessus en panneau repliable (comme un rideau de cirque).
+ */
 @Composable
 fun ChatPanel(
     state: DispoUiState,
@@ -59,10 +73,33 @@ fun ChatPanel(
     onShareLocation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (!state.chatUnlocked) {
-        LockedChat(state, modifier)
-        return
+    val pins = state.messages.filter { it.hasLocation }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Carte plein écran en fond
+        CircusMap(pins = pins, modifier = Modifier.fillMaxSize())
+
+        if (!state.chatUnlocked) {
+            LockedChat(state, Modifier.align(Alignment.Center))
+        } else {
+            ChatOverlay(
+                state = state,
+                onSend = onSend,
+                onShareLocation = onShareLocation,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
+}
+
+@Composable
+private fun ChatOverlay(
+    state: DispoUiState,
+    onSend: (String) -> Unit,
+    onShareLocation: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(true) }
 
     val listState = rememberLazyListState()
     LaunchedEffect(state.messages.size) {
@@ -71,88 +108,129 @@ fun ChatPanel(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(12.dp)) {
-        // En-tête chapiteau
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .shadow(8.dp, RoundedCornerShape(20.dp))
+            .background(Cream, RoundedCornerShape(20.dp))
+            .border(3.dp, InkBrown, RoundedCornerShape(20.dp))
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            )
+            .padding(10.dp),
+    ) {
+        // En-tête : titre + compteur LED + repli
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(CircusRed, RoundedCornerShape(14.dp))
-                .border(3.dp, InkBrown, RoundedCornerShape(14.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .border(2.5.dp, InkBrown, RoundedCornerShape(14.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { expanded = !expanded }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 "LE CHAT DU SOIR",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
                 color = Cream,
             )
-            LedPanel(
-                text = "${state.dispoCount} DISPOS",
-                fontSize = 15.sp,
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(state.messages, key = { it.id }) { msg ->
-                MessageBubble(msg)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LedPanel(text = "${state.dispoCount} DISPOS", fontSize = 14.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (expanded) "▼" else "▲",
+                    color = Cream,
+                    fontSize = 16.sp,
+                )
             }
         }
 
-        Spacer(Modifier.height(10.dp))
-
-        var draft by remember { mutableStateOf("") }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Écris un message…", color = InkBrown.copy(alpha = 0.5f)) },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CircusRed,
-                    unfocusedBorderColor = InkBrown,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
                 ),
-            )
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = {
-                    if (draft.isNotBlank()) {
-                        onSend(draft.trim())
-                        draft = ""
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
-                border = androidx.compose.foundation.BorderStroke(3.dp, InkBrown),
-                modifier = Modifier.size(54.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-            ) {
-                Text("🚀", fontSize = 20.sp)
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Button(
-            onClick = onShareLocation,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
-            border = androidx.compose.foundation.BorderStroke(3.dp, InkBrown),
+            ),
+            exit = shrinkVertically(),
         ) {
-            Text(
-                "📍 PARTAGER UN LIEU",
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
-                color = Cream,
-            )
+            Column {
+                Spacer(Modifier.height(8.dp))
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(state.messages, key = { it.id }) { msg ->
+                        MessageBubble(msg)
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                var draft by remember { mutableStateOf("") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = {
+                            Text("Écris un message…", color = InkBrown.copy(alpha = 0.5f))
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CircusRed,
+                            unfocusedBorderColor = InkBrown,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                        ),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    // Partager un lieu : pose un pin et replie le chat pour voir la carte
+                    Button(
+                        onClick = {
+                            onShareLocation()
+                            expanded = false
+                        },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
+                        border = BorderStroke(3.dp, InkBrown),
+                        modifier = Modifier.size(52.dp),
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text("📍", fontSize = 20.sp)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Button(
+                        onClick = {
+                            if (draft.isNotBlank()) {
+                                onSend(draft.trim())
+                                draft = ""
+                            }
+                        },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
+                        border = BorderStroke(3.dp, InkBrown),
+                        modifier = Modifier.size(52.dp),
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text("🚀", fontSize = 20.sp)
+                    }
+                }
+            }
         }
     }
 }
@@ -242,33 +320,31 @@ private fun Avatar(name: String) {
 
 @Composable
 private fun LockedChat(state: DispoUiState, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Cream, RoundedCornerShape(20.dp))
-                .border(3.dp, InkBrown, RoundedCornerShape(20.dp))
-                .padding(24.dp),
-        ) {
-            Text("🎪", fontSize = 56.sp)
-            Spacer(Modifier.height(14.dp))
-            LedPanel(
-                text = when (state.dispoCount) {
-                    0 -> "EN ATTENTE DE 2 DISPOS…"
-                    else -> "ENCORE 1 ET C'EST PARTI !"
-                },
-                fontSize = 18.sp,
-                blinking = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Le chat s'ouvre dès que 2 personnes ont tapé le bouton.",
-                color = InkBrown,
-                fontSize = 15.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .padding(24.dp)
+            .shadow(8.dp, RoundedCornerShape(20.dp))
+            .background(Cream, RoundedCornerShape(20.dp))
+            .border(3.dp, InkBrown, RoundedCornerShape(20.dp))
+            .padding(24.dp),
+    ) {
+        Text("🎪", fontSize = 56.sp)
+        Spacer(Modifier.height(14.dp))
+        LedPanel(
+            text = when (state.dispoCount) {
+                0 -> "EN ATTENTE DE 2 DISPOS…"
+                else -> "ENCORE 1 ET C'EST PARTI !"
+            },
+            fontSize = 18.sp,
+            blinking = true,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Le chat s'ouvre dès que 2 personnes ont tapé le bouton.",
+            color = InkBrown,
+            fontSize = 15.sp,
+            textAlign = TextAlign.Center,
+        )
     }
 }
