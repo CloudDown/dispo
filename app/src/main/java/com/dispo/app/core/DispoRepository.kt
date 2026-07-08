@@ -44,12 +44,9 @@ class DispoRepository private constructor(private val appContext: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    // Seule Léa est simulée (démo backend) ; les vrais membres viendront de Supabase.
     private val friendsFlow = MutableStateFlow(
-        listOf(
-            Friend(id = "lea", name = "Léa"),
-            Friend(id = "max", name = "Max"),
-            Friend(id = "sam", name = "Sam"),
-        )
+        listOf(Friend(id = "lea", name = "Léa")),
     )
 
     private val messagesFlow = MutableStateFlow<List<ChatMessage>>(emptyList())
