@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,9 +22,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -59,11 +60,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * Page Chat : plein écran. Les messages avec un lieu (📍) sont cliquables
- * et ouvrent la carte plein écran via [onOpenMap] ; le bouton 📍 aussi,
- * pour choisir un lieu en tapant directement la carte.
- */
 @Composable
 fun ChatPanel(
     state: DispoUiState,
@@ -83,11 +79,12 @@ fun ChatPanel(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(12.dp)) {
-        // En-tête chapiteau
+    Column(modifier = modifier.fillMaxSize()) {
+        // En-tête
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp)
                 .background(CircusRed, RoundedCornerShape(14.dp))
                 .border(3.dp, InkBrown, RoundedCornerShape(14.dp))
                 .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -102,20 +99,22 @@ fun ChatPanel(
             LedPanel(text = "${state.dispoCount} DISPOS", fontSize = 15.sp)
         }
 
-        Spacer(Modifier.height(10.dp))
-
+        // Messages : occupe l'espace restant au-dessus de la barre d'écriture
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 10.dp),
         ) {
             items(state.messages, key = { it.id }) { msg ->
                 MessageBubble(msg, onOpenMap = onOpenMap)
             }
         }
 
-        Spacer(Modifier.height(10.dp))
-
+        // Barre d'écriture : collée au clavier via imePadding (hauteur IME exacte)
         var draft by remember { mutableStateOf("") }
         val sendDraft = {
             if (draft.isNotBlank()) {
@@ -123,7 +122,13 @@ fun ChatPanel(
                 draft = ""
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             OutlinedTextField(
                 value = draft,
                 onValueChange = { draft = it },

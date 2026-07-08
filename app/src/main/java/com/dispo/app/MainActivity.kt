@@ -19,12 +19,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,10 +48,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.DispoRepository
 import com.dispo.app.ui.ChatPanel
+import com.dispo.app.ui.DispoButton
+import com.dispo.app.ui.DISPO_BUTTON_FRACTION
 import com.dispo.app.ui.HomePanel
 import com.dispo.app.ui.LooneyRings
 import com.dispo.app.ui.MapScreen
@@ -70,6 +79,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DispoApp() {
     val context = LocalContext.current
@@ -84,6 +94,11 @@ fun DispoApp() {
     // Carte plein écran par-dessus tout (hors pager : pas de conflit de gestes)
     var mapOpen by remember { mutableStateOf(false) }
     BackHandler(enabled = mapOpen) { mapOpen = false }
+
+    // À chaque ouverture de l'app : état « pas dispo » par défaut
+    LaunchedEffect(Unit) {
+        repository.resetDispoOnLaunch()
+    }
 
     // Ouvre le chat automatiquement quand il se déverrouille
     val previousUnlocked = remember { mutableStateOf(state.chatUnlocked) }
@@ -116,9 +131,32 @@ fun DispoApp() {
                     .fillMaxSize()
                     .graphicsLayer { alpha = homeVisibility },
             )
+
+            // Bouton calé au centre écran, même repère que le cœur jaune
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = homeVisibility },
+                contentAlignment = Alignment.Center,
+            ) {
+                val buttonSize: Dp = minOf(maxWidth, maxHeight) * DISPO_BUTTON_FRACTION
+                DispoButton(
+                    dispo = state.meDispo,
+                    onToggle = {
+                        scope.launch {
+                            repository.toggleMeDispo()
+                            DispoWidget.refreshAll(context)
+                        }
+                    },
+                    size = buttonSize,
+                )
+            }
         }
 
-        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+        @OptIn(ExperimentalLayoutApi::class)
+        val keyboardVisible = WindowInsets.isImeVisible
+
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.weight(1f),
@@ -144,15 +182,7 @@ fun DispoApp() {
                         },
                 ) {
                     when (page) {
-                        0 -> HomePanel(
-                            state = state,
-                            onToggle = {
-                                scope.launch {
-                                    repository.toggleMeDispo()
-                                    DispoWidget.refreshAll(context)
-                                }
-                            },
-                        )
+                        0 -> HomePanel(state = state)
                         1 -> ChatPanel(
                             state = state,
                             onSend = { text -> repository.sendMessage(text) },
@@ -162,51 +192,54 @@ fun DispoApp() {
                 }
             }
 
-            // Barre d'onglets façon fanions de cirque
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .background(Cream, RoundedCornerShape(22.dp))
-                    .border(3.dp, InkBrown, RoundedCornerShape(22.dp))
-                    .padding(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    val selected = pagerState.currentPage == index
-                    val tabColor by animateColorAsState(
-                        targetValue = if (selected) CircusRed else Cream,
-                        animationSpec = tween(250),
-                        label = "tabColor",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(tabColor, RoundedCornerShape(16.dp))
-                            .then(
-                                if (selected) {
-                                    Modifier.border(2.5.dp, InkBrown, RoundedCornerShape(16.dp))
-                                } else Modifier
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(
-                                        index,
-                                        animationSpec = pageTransition,
-                                    )
-                                }
-                            }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
-                            color = if (selected) Cream else InkBrown,
+            // Masquée quand le clavier est ouvert pour ne pas pousser la barre d'écriture
+            if (!keyboardVisible) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .background(Cream, RoundedCornerShape(22.dp))
+                        .border(3.dp, InkBrown, RoundedCornerShape(22.dp))
+                        .padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        val selected = pagerState.currentPage == index
+                        val tabColor by animateColorAsState(
+                            targetValue = if (selected) CircusRed else Cream,
+                            animationSpec = tween(250),
+                            label = "tabColor",
                         )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(tabColor, RoundedCornerShape(16.dp))
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(2.5.dp, InkBrown, RoundedCornerShape(16.dp))
+                                    } else Modifier
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(
+                                            index,
+                                            animationSpec = pageTransition,
+                                        )
+                                    }
+                                }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
+                                color = if (selected) Cream else InkBrown,
+                            )
+                        }
                     }
                 }
             }

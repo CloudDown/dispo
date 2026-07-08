@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -34,15 +33,16 @@ private val FaceDark = Color(0xFF0B4A2A)
 private val FaceHighlight = Color(0xFF7FE8AC)
 
 /**
- * Gros bouton vert central avec visage gravé (blasé → sourire).
- * Taille et position fixes : seuls la couleur et le visage changent au tap.
+ * Bouton vert calé sur le cœur jaune de la tornade Looney Tunes.
+ * Taille imposée par le parent (≈ 52 % de la plus petite dimension écran).
+ * Pas d'ombre : il doit sembler gravé dans l'animation derrière.
  */
 @Composable
 fun DispoButton(
     dispo: Boolean,
     onToggle: () -> Unit,
+    size: Dp,
     modifier: Modifier = Modifier,
-    size: Dp = 300.dp,
 ) {
     val buttonColor by animateColorAsState(
         targetValue = if (dispo) DispoGreen else DispoGreenDark,
@@ -63,9 +63,8 @@ fun DispoButton(
         Box(
             modifier = Modifier
                 .size(size)
-                .shadow(elevation = 12.dp, shape = CircleShape)
                 .background(buttonColor, CircleShape)
-                .border(5.dp, InkBrown, CircleShape)
+                .border((size.value * 0.012f).coerceIn(2f, 4f).dp, InkBrown, CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -73,7 +72,7 @@ fun DispoButton(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(modifier = Modifier.size(size * 0.75f)) {
+            Canvas(modifier = Modifier.size(size * 0.72f)) {
                 drawFace(face, FaceHighlight, offsetPx = this.size.minDimension * 0.014f)
                 drawFace(face, FaceDark, offsetPx = 0f)
             }

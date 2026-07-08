@@ -71,6 +71,14 @@ class DispoRepository private constructor(private val appContext: Context) {
             .toInstant()
             .toEpochMilli()
 
+    /** Remet « pas dispo » à chaque ouverture de l'app. */
+    suspend fun resetDispoOnLaunch() {
+        appContext.dataStore.edit { prefs ->
+            prefs[KEY_ACTIVE] = false
+            prefs[KEY_EXPIRES_AT] = 0L
+        }
+    }
+
     suspend fun toggleMeDispo(): Boolean {
         val currentlyDispo = meDispoFlow.first()
         val newValue = !currentlyDispo
