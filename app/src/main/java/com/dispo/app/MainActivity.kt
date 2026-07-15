@@ -131,26 +131,6 @@ fun DispoApp() {
                     .fillMaxSize()
                     .graphicsLayer { alpha = homeVisibility },
             )
-
-            // Bouton calé au centre écran, même repère que le cœur jaune
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = homeVisibility },
-                contentAlignment = Alignment.Center,
-            ) {
-                val buttonSize: Dp = minOf(maxWidth, maxHeight) * DISPO_BUTTON_FRACTION
-                DispoButton(
-                    dispo = state.meDispo,
-                    onToggle = {
-                        scope.launch {
-                            repository.toggleMeDispo()
-                            DispoWidget.refreshAll(context)
-                        }
-                    },
-                    size = buttonSize,
-                )
-            }
         }
 
         @OptIn(ExperimentalLayoutApi::class)
@@ -242,6 +222,30 @@ fun DispoApp() {
                         }
                     }
                 }
+            }
+        }
+
+        // Bouton calé au centre écran, même repère que le cœur jaune de la
+        // tornade. Dessiné AU-DESSUS du pager : sinon le pager (scrollable)
+        // intercepte les taps et le bouton ne reçoit jamais le clic.
+        if (homeVisibility > 0f) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = homeVisibility },
+                contentAlignment = Alignment.Center,
+            ) {
+                val buttonSize: Dp = minOf(maxWidth, maxHeight) * DISPO_BUTTON_FRACTION
+                DispoButton(
+                    dispo = state.meDispo,
+                    onToggle = {
+                        scope.launch {
+                            repository.toggleMeDispo()
+                            DispoWidget.refreshAll(context)
+                        }
+                    },
+                    size = buttonSize,
+                )
             }
         }
 
