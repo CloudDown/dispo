@@ -12,10 +12,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +37,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+import kotlinx.coroutines.launch
 
 private val FaceDark = Color(0xFF0B4A2A)
 private val FaceHighlight = Color(0xFF7FE8AC)
@@ -47,7 +48,7 @@ private const val BURST_MS = 800
 /**
  * Bouton vert calé sur le cœur jaune de la tornade Looney Tunes.
  * Face droite ; la profondeur part en biais (oblique).
- * Burst d’étoiles au passage à dispo.
+ * Burst d’étoiles au clic qui active dispo.
  */
 @Composable
 fun DispoButton(
@@ -69,17 +70,23 @@ fun DispoButton(
     )
 
     val burst = remember { Animatable(0f) }
-    var wasDispo by remember { mutableStateOf(dispo) }
+    var burstVisible by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(dispo) {
-        if (dispo && !wasDispo) {
-            burst.snapTo(0f)
-            burst.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(BURST_MS, easing = LinearOutSlowInEasing),
-            )
+    fun playBurst() {
+        scope.launch {
+            try {
+                burstVisible = true
+                burst.snapTo(0f)
+                burst.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(BURST_MS, easing = LinearOutSlowInEasing),
+                )
+            } finally {
+                burstVisible = false
+                burst.snapTo(0f)
+            }
         }
-        wasDispo = dispo
     }
 
     val burstProgress = burst.value
@@ -96,7 +103,11 @@ fun DispoButton(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onToggle,
+                    onClick = {
+                        val activating = !dispo
+                        onToggle()
+                        if (activating) playBurst()
+                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -104,7 +115,8 @@ fun DispoButton(
                 drawDispoPuck(buttonColor, raised = face, faceProgress = face)
             }
         }
-        if (burstProgress in 0.001f..0.999f) {
+        // progress > 0.02 : évite une étoile empilée au centre au premier frame
+        if (burstVisible && burstProgress > 0.02f) {
             val puckDp = size
             Canvas(modifier = Modifier.size(canvasSize)) {
                 val puckPx = puckDp.toPx()
