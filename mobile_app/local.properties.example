@@ -1,0 +1,8 @@
+## Chemin SDK Android
+sdk.dir=/path/to/Android/Sdk
+
+## URL de l'API Dispo (trailing slash recommandé pour Retrofit)
+## Émulateur Android : http://10.0.2.2:8000/
+## Appareil USB + adb reverse : http://127.0.0.1:8000/
+## Waydroid / LAN : http://IP_DE_TA_MACHINE:8000/
+dispo.api.base.url=http://10.0.2.2:8000/

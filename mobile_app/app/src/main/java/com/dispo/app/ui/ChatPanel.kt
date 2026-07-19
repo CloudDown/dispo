@@ -39,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -60,6 +59,21 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val BubbleMe = RoundedCornerShape(
+    topStart = 16.dp,
+    topEnd = 16.dp,
+    bottomStart = 16.dp,
+    bottomEnd = 4.dp,
+)
+private val BubbleOther = RoundedCornerShape(
+    topStart = 16.dp,
+    topEnd = 16.dp,
+    bottomStart = 4.dp,
+    bottomEnd = 16.dp,
+)
+
+private val timeFormat = SimpleDateFormat("HH:mm", Locale.FRANCE)
+
 @Composable
 fun ChatPanel(
     state: DispoUiState,
@@ -75,12 +89,12 @@ fun ChatPanel(
     val listState = rememberLazyListState()
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty()) {
-            listState.animateScrollToItem(state.messages.size - 1)
+            // Scroll instantané = plus fluide qu'une anim concurrente au fling
+            listState.scrollToItem(state.messages.size - 1)
         }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // En-tête
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,10 +110,13 @@ fun ChatPanel(
                 style = MaterialTheme.typography.titleLarge,
                 color = Cream,
             )
-            LedPanel(text = "${state.dispoCount} DISPOS", fontSize = 15.sp)
+            Text(
+                "${state.dispoCount} dispos",
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
+                color = Cream,
+            )
         }
 
-        // Messages : occupe l'espace restant au-dessus de la barre d'écriture
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -109,62 +126,78 @@ fun ChatPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 10.dp),
         ) {
-            items(state.messages, key = { it.id }) { msg ->
-                MessageBubble(msg, onOpenMap = onOpenMap)
+            items(
+                items = state.messages,
+                key = { it.id },
+                contentType = { if (it.authorId == state.profile.id) "me" else "other" },
+            ) { msg ->
+                MessageBubble(
+                    msg = msg,
+                    myId = state.profile.id,
+                    onOpenMap = onOpenMap,
+                )
             }
         }
 
-        // Barre d'écriture : collée au clavier via imePadding (hauteur IME exacte)
-        var draft by remember { mutableStateOf("") }
-        val sendDraft = {
-            if (draft.isNotBlank()) {
-                onSend(draft.trim())
-                draft = ""
-            }
+        // Isolé : taper ne recompose pas toute la liste de messages
+        ChatInputBar(onSend = onSend, onOpenMap = onOpenMap)
+    }
+}
+
+@Composable
+private fun ChatInputBar(
+    onSend: (String) -> Unit,
+    onOpenMap: () -> Unit,
+) {
+    var draft by remember { mutableStateOf("") }
+    val sendDraft = {
+        if (draft.isNotBlank()) {
+            onSend(draft.trim())
+            draft = ""
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("Écris un message…", color = InkBrown.copy(alpha = 0.5f)) },
+            singleLine = true,
+            shape = RoundedCornerShape(24.dp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { sendDraft() }),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CircusRed,
+                unfocusedBorderColor = InkBrown,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+            ),
+        )
+        Spacer(Modifier.width(6.dp))
+        Button(
+            onClick = onOpenMap,
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
+            border = BorderStroke(3.dp, InkBrown),
+            modifier = Modifier.size(52.dp),
+            contentPadding = PaddingValues(0.dp),
         ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Écris un message…", color = InkBrown.copy(alpha = 0.5f)) },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { sendDraft() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CircusRed,
-                    unfocusedBorderColor = InkBrown,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                ),
-            )
-            Spacer(Modifier.width(6.dp))
-            Button(
-                onClick = onOpenMap,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
-                border = BorderStroke(3.dp, InkBrown),
-                modifier = Modifier.size(52.dp),
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text("📍", fontSize = 20.sp)
-            }
+            Text("📍", fontSize = 20.sp)
         }
     }
 }
 
-private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-
 @Composable
-private fun MessageBubble(msg: ChatMessage, onOpenMap: () -> Unit) {
-    val isMe = msg.authorId == "me"
+private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit) {
+    val isMe = msg.authorId == myId
+    val shape = if (isMe) BubbleMe else BubbleOther
+    val timeText = remember(msg.timestamp) { timeFormat.format(Date(msg.timestamp)) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -179,9 +212,9 @@ private fun MessageBubble(msg: ChatMessage, onOpenMap: () -> Unit) {
         Column(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .shadow(3.dp, bubbleShape(isMe))
-                .background(if (isMe) SunYellow else Color.White, bubbleShape(isMe))
-                .border(2.5.dp, InkBrown, bubbleShape(isMe))
+                // Pas de .shadow() : les ombres soft coûtent très cher au scroll
+                .background(if (isMe) SunYellow else Color.White, shape)
+                .border(2.5.dp, InkBrown, shape)
                 .then(
                     if (msg.hasLocation) Modifier.clickable(onClick = onOpenMap) else Modifier
                 )
@@ -210,7 +243,7 @@ private fun MessageBubble(msg: ChatMessage, onOpenMap: () -> Unit) {
                 )
             }
             Text(
-                timeFormat.format(Date(msg.timestamp)),
+                timeText,
                 fontSize = 13.sp,
                 fontFamily = LedFamily,
                 color = InkBrown.copy(alpha = 0.55f),
@@ -220,17 +253,10 @@ private fun MessageBubble(msg: ChatMessage, onOpenMap: () -> Unit) {
 
         if (isMe) {
             Spacer(Modifier.width(8.dp))
-            Avatar(name = "Moi")
+            Avatar(name = msg.authorName)
         }
     }
 }
-
-private fun bubbleShape(isMe: Boolean) = RoundedCornerShape(
-    topStart = 16.dp,
-    topEnd = 16.dp,
-    bottomStart = if (isMe) 16.dp else 4.dp,
-    bottomEnd = if (isMe) 4.dp else 16.dp,
-)
 
 @Composable
 private fun Avatar(name: String) {
@@ -268,14 +294,14 @@ private fun LockedChat(state: DispoUiState, modifier: Modifier = Modifier) {
         ) {
             Text("🎪", fontSize = 56.sp)
             Spacer(Modifier.height(14.dp))
-            LedPanel(
-                text = when (state.dispoCount) {
-                    0 -> "EN ATTENTE DE 2 DISPOS…"
-                    else -> "ENCORE 1 ET C'EST PARTI !"
+            Text(
+                when (state.dispoCount) {
+                    0 -> "En attente de 2 dispos…"
+                    else -> "Encore 1 et c'est parti !"
                 },
-                fontSize = 18.sp,
-                blinking = true,
-                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleLarge,
+                color = CircusRed,
+                textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(12.dp))
             Text(

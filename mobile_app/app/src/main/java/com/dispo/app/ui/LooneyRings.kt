@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.drawscope.Stroke
 import com.dispo.app.ui.theme.CircusOrange
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.CircusRedDark
@@ -54,11 +53,5 @@ fun LooneyRings(modifier: Modifier = Modifier) {
         // Cœur jaune/orange : le bouton vert vient se poser exactement dessus
         drawCircle(color = CircusOrange, radius = coreOuter, center = center)
         drawCircle(color = SunYellow, radius = coreYellow, center = center)
-        drawCircle(
-            color = CircusOrange,
-            radius = size.minDimension * 0.30f,
-            center = center,
-            style = Stroke(width = size.minDimension * 0.012f),
-        )
     }
 }

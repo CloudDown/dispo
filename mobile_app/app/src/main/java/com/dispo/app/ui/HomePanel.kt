@@ -14,13 +14,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.DispoUiState
 import com.dispo.app.ui.theme.Cream
 import com.dispo.app.ui.theme.InkBrown
+import com.dispo.app.ui.theme.SunYellow
 
-/** Titre + ticker + hint. Le bouton vert est superposé au centre écran par DispoApp. */
+/** Titre + hint. Le bouton vert est superposé au centre écran par DispoApp. */
 @Composable
 fun HomePanel(
     state: DispoUiState,
@@ -45,16 +47,17 @@ fun HomePanel(
                 ),
             )
             Spacer(Modifier.height(10.dp))
-            Box(modifier = Modifier.fillMaxWidth(0.9f).height(44.dp)) {
-                LedTicker(
-                    text = if (state.meDispo) {
-                        "★ TU ES DISPO JUSQU'À MINUIT ★"
-                    } else {
-                        "★ TAPE LE BOUTON SI T'ES CHAUD CE SOIR ★"
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+            Text(
+                text = if (state.meDispo) {
+                    "Tu es dispo jusqu'à minuit"
+                } else {
+                    "Tape le bouton si t'es chaud ce soir"
+                },
+                color = Cream,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+            )
         }
 
         Box(
@@ -65,11 +68,12 @@ fun HomePanel(
             contentAlignment = Alignment.Center,
         ) {
             if (state.dispoCount == 1) {
-                LedPanel(
-                    text = "ENCORE 1 POUR LE CHAT",
-                    fontSize = 16.sp,
-                    blinking = true,
-                    modifier = Modifier.fillMaxWidth(),
+                Text(
+                    "Encore 1 pour le chat",
+                    color = SunYellow,
+                    fontSize = 18.sp,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+                    textAlign = TextAlign.Center,
                 )
             }
         }

@@ -1,6 +1,8 @@
 package com.dispo.app
 
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -58,6 +60,7 @@ import com.dispo.app.ui.DISPO_BUTTON_FRACTION
 import com.dispo.app.ui.HomePanel
 import com.dispo.app.ui.LooneyRings
 import com.dispo.app.ui.MapScreen
+import com.dispo.app.ui.ProfilePanel
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.CircusRedDark
 import com.dispo.app.ui.theme.Cream
@@ -71,6 +74,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Demande le taux de rafraîchissement max de l'écran (90/120 Hz)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.attributes = window.attributes.apply {
+                preferredRefreshRate = 120f
+            }
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         setContent {
             DispoTheme {
                 DispoApp()
@@ -87,8 +97,8 @@ fun DispoApp() {
     val state by repository.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val pagerState = rememberPagerState(pageCount = { 2 })
-    val tabs = listOf("😀 DISPO", "💬 CHAT")
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val tabs = listOf("😀 DISPO", "💬 CHAT", "👤 PROFIL")
     val pageTransition = tween<Float>(durationMillis = 550, easing = FastOutSlowInEasing)
 
     // Carte plein écran par-dessus tout (hors pager : pas de conflit de gestes)
@@ -137,38 +147,55 @@ fun DispoApp() {
         val keyboardVisible = WindowInsets.isImeVisible
 
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+            // beyondViewport = 0 : la page d'accueil (tornade + ticker LED) est
+            // détruite hors écran, sinon ses animations volent des frames au chat.
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.weight(1f),
-                beyondViewportPageCount = 1,
+                beyondViewportPageCount = 0,
             ) { page ->
-                // Parallaxe + fondu + léger zoom pendant le swipe
-                val pageOffset =
-                    ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction)
-                        .absoluteValue
-                        .coerceIn(0f, 1f)
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            val visibility = 1f - pageOffset
-                            alpha = 0.35f + 0.65f * visibility
-                            val scale = 0.92f + 0.08f * visibility
-                            scaleX = scale
-                            scaleY = scale
-                            translationX = pageOffset * size.width * 0.08f *
-                                if (page < pagerState.currentPage) -1f else 1f
-                        },
-                ) {
-                    when (page) {
-                        0 -> HomePanel(state = state)
-                        1 -> ChatPanel(
-                            state = state,
-                            onSend = { text -> repository.sendMessage(text) },
-                            onOpenMap = { mapOpen = true },
-                        )
+                when (page) {
+                    0 -> {
+                        // Effet parallaxe uniquement sur l'accueil pendant le swipe
+                        val pageOffset =
+                            ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction)
+                                .absoluteValue
+                                .coerceIn(0f, 1f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    val visibility = 1f - pageOffset
+                                    alpha = 0.35f + 0.65f * visibility
+                                    val scale = 0.92f + 0.08f * visibility
+                                    scaleX = scale
+                                    scaleY = scale
+                                },
+                        ) {
+                            HomePanel(state = state)
+                        }
                     }
+                    1 -> ChatPanel(
+                        state = state,
+                        onSend = { text -> repository.sendMessage(text) },
+                        onOpenMap = { mapOpen = true },
+                    )
+                    2 -> ProfilePanel(
+                        state = state,
+                        onUpdateName = { name ->
+                            scope.launch { repository.updateDisplayName(name) }
+                        },
+                        onCycleAvatar = {
+                            scope.launch { repository.cycleAvatarColor() }
+                        },
+                        onAddFriend = { id ->
+                            scope.launch { repository.addFriendById(id) }
+                        },
+                        onRemoveFriend = { id ->
+                            scope.launch { repository.removeFriend(id) }
+                        },
+                        onClearFeedback = { repository.clearFeedback() },
+                    )
                 }
             }
 
@@ -216,7 +243,7 @@ fun DispoApp() {
                         ) {
                             Text(
                                 text = title,
-                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 14.sp),
                                 color = if (selected) Cream else InkBrown,
                             )
                         }
@@ -259,6 +286,7 @@ fun DispoApp() {
                 pins = state.messages.filter { it.hasLocation },
                 onPickLocation = { lat, lon ->
                     repository.sendMessage("On se retrouve ici !", lat = lat, lon = lon)
+                    mapOpen = false
                 },
                 onClose = { mapOpen = false },
             )
