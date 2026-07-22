@@ -4,8 +4,15 @@ from sqlmodel import Session, select
 from auth.models import User
 from auth.service import get_current_user
 from db import get_session
-from groups.models import CreateGroupRequest, Group, GroupMember, JoinGroupRequest, GroupPublic
-from groups.service import create_group, ensure_member, to_public
+from groups.models import (
+    AddMemberRequest,
+    CreateGroupRequest,
+    Group,
+    GroupMember,
+    JoinGroupRequest,
+    GroupPublic,
+)
+from groups.service import add_friend_to_group, create_group, ensure_member, leave_group, to_public
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -69,3 +76,24 @@ def get_group(
     if not group:
         raise HTTPException(404, "Groupe introuvable")
     return to_public(session, group)
+
+
+@router.post("/{group_id}/members", response_model=GroupPublic)
+def add_member(
+    group_id: int,
+    req: AddMemberRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    group = add_friend_to_group(session, group_id, current_user, req.public_id)
+    return to_public(session, group)
+
+
+@router.delete("/{group_id}/members/me", status_code=status.HTTP_204_NO_CONTENT)
+def leave(
+    group_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    leave_group(session, group_id, current_user)
+    return None

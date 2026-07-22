@@ -2,7 +2,11 @@
 mobile_app/.gradle/
 mobile_app/**/build/
 mobile_app/local.properties
-mobile_app/.idea/
+mobile_app/.idea/*
+!mobile_app/.idea/runConfigurations/
+!mobile_app/.idea/runConfigurations/**
+!mobile_app/.idea/misc.xml
+!mobile_app/.idea/gradle.xml
 *.iml
 *.apk
 *.aab

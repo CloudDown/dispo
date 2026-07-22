@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from auth.models import User
-from friends.service import is_currently_dispo
+from friends.service import are_friends, is_currently_dispo
 from groups.models import Group, GroupMember, GroupMemberPublic, GroupPublic
 
 _CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -71,3 +71,52 @@ def create_group(session: Session, owner: User, name: str) -> Group:
     session.add(GroupMember(group_id=group.id, user_id=owner.id))
     session.commit()
     return group
+
+
+def add_friend_to_group(
+    session: Session,
+    group_id: int,
+    actor: User,
+    friend_public_id: str,
+) -> Group:
+    ensure_member(session, group_id, actor.id)
+    group = session.get(Group, group_id)
+    if not group:
+        raise HTTPException(404, "Groupe introuvable")
+
+    handle = friend_public_id.strip().lstrip("@").lower()
+    friend = session.exec(select(User).where(User.public_id == handle)).first()
+    if not friend or not friend.actif:
+        raise HTTPException(404, "Utilisateur introuvable")
+    if friend.id == actor.id:
+        raise HTTPException(400, "Tu es déjà dans le groupe")
+    if not are_friends(session, actor.id, friend.id):
+        raise HTTPException(400, "Vous devez être amis pour l'ajouter")
+
+    existing = session.exec(
+        select(GroupMember).where(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == friend.id,
+        )
+    ).first()
+    if existing:
+        return group
+
+    session.add(GroupMember(group_id=group_id, user_id=friend.id))
+    session.commit()
+    session.refresh(group)
+    return group
+
+
+def leave_group(session: Session, group_id: int, user: User) -> None:
+    row = ensure_member(session, group_id, user.id)
+    session.delete(row)
+    session.commit()
+    remaining = session.exec(
+        select(GroupMember).where(GroupMember.group_id == group_id)
+    ).first()
+    if not remaining:
+        group = session.get(Group, group_id)
+        if group:
+            session.delete(group)
+            session.commit()

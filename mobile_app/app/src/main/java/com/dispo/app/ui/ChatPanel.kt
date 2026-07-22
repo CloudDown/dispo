@@ -295,17 +295,14 @@ private fun LockedChat(state: DispoUiState, modifier: Modifier = Modifier) {
             Text("🎪", fontSize = 56.sp)
             Spacer(Modifier.height(14.dp))
             Text(
-                when (state.dispoCount) {
-                    0 -> "En attente de 2 dispos…"
-                    else -> "Encore 1 et c'est parti !"
-                },
+                "En attente d'une dispo…",
                 style = MaterialTheme.typography.titleLarge,
                 color = CircusRed,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                "Le chat s'ouvre dès que 2 personnes ont tapé le bouton.",
+                "Le chat s'ouvre dès qu'une personne a tapé le bouton.",
                 color = InkBrown,
                 fontSize = 15.sp,
                 textAlign = TextAlign.Center,

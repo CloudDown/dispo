@@ -12,7 +12,7 @@ Modules domaine FastAPI :
 - `friends` — ajout par ID
 - `groups` — crews + invite codes
 - `availability` — toggle dispo fin de journée
-- `chat` — messages groupe (gate ≥ 2 dispos)
+- `chat` — messages groupe (gate ≥ 1 dispo)
 
 ## Mobile (fait UI locale)
 

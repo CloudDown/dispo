@@ -49,9 +49,9 @@ def send_message(
     current_user: User = Depends(get_current_user),
 ):
     ensure_member(session, group_id, current_user.id)
-    # Chat déverrouillé à partir de 2 dispos dans le groupe
-    if count_active_in_group(session, group_id) < 2:
-        raise HTTPException(403, "Il faut 2 personnes dispos pour chatter")
+    # Chat déverrouillé dès 1 dispo dans le groupe
+    if count_active_in_group(session, group_id) < 1:
+        raise HTTPException(403, "Il faut être dispo pour chatter")
 
     text = req.text.strip()
     if not text and req.lat is None:

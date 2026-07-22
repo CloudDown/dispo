@@ -43,7 +43,9 @@ private val FaceDark = Color(0xFF0B4A2A)
 private val FaceHighlight = Color(0xFF7FE8AC)
 
 private const val STAR_COUNT = 10
-private const val BURST_MS = 800
+
+/** Durée du burst d’étoiles (ms) — le swipe vers le chat attend la fin. */
+const val STAR_BURST_MS = 800
 
 /**
  * Bouton vert calé sur le cœur jaune de la tornade Looney Tunes.
@@ -80,7 +82,7 @@ fun DispoButton(
                 burst.snapTo(0f)
                 burst.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(BURST_MS, easing = LinearOutSlowInEasing),
+                    animationSpec = tween(STAR_BURST_MS, easing = LinearOutSlowInEasing),
                 )
             } finally {
                 burstVisible = false

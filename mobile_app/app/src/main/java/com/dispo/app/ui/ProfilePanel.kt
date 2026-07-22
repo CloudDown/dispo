@@ -1,5 +1,12 @@
 package com.dispo.app.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,17 +46,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.dispo.app.core.CrewGroup
 import com.dispo.app.core.DispoUiState
 import com.dispo.app.core.Friend
 import com.dispo.app.ui.theme.CircusPurple
 import com.dispo.app.ui.theme.Cream
 import com.dispo.app.ui.theme.DispoGreen
-import com.dispo.app.ui.theme.InkBrown
+import java.io.File
 import kotlinx.coroutines.delay
 
 val AvatarPalette = listOf(
@@ -61,7 +72,6 @@ val AvatarPalette = listOf(
     Color(0xFFFF6B35),
 )
 
-// Palette profil — plus douce / lisible
 private val ProfileBg = Color(0xFFFFF6EC)
 private val ProfileInk = Color(0xFF2C241C)
 private val ProfileMuted = Color(0xFF7A6E62)
@@ -89,15 +99,29 @@ private fun profileFieldColors() = OutlinedTextFieldDefaults.colors(
 fun ProfilePanel(
     state: DispoUiState,
     onUpdateName: (String) -> Unit,
-    onCycleAvatar: () -> Unit,
+    onPickAvatar: (Uri) -> Unit,
     onAddFriend: (String) -> Unit,
     onRemoveFriend: (String) -> Unit,
+    onCreateGroup: (String) -> Unit,
+    onJoinGroup: (String) -> Unit,
+    onAddFriendToGroup: (groupId: String, friendId: String) -> Unit,
+    onLeaveGroup: (String) -> Unit,
     onClearFeedback: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val profile = state.profile
+    val context = LocalContext.current
     var nameDraft by remember(profile.name) { mutableStateOf(profile.name) }
     var friendNameDraft by remember { mutableStateOf("") }
+    var groupNameDraft by remember { mutableStateOf("") }
+    var joinCodeDraft by remember { mutableStateOf("") }
+    var expandedGroupId by remember { mutableStateOf<String?>(null) }
+
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) onPickAvatar(uri)
+    }
 
     LaunchedEffect(state.addFriendFeedback) {
         if (state.addFriendFeedback != null) {
@@ -122,19 +146,33 @@ fun ProfilePanel(
                 Box(
                     modifier = Modifier
                         .size(88.dp)
-                        .background(
-                            AvatarPalette[profile.avatarColor % AvatarPalette.size],
-                            CircleShape,
-                        )
+                        .clip(CircleShape)
+                        .background(AvatarPalette[profile.avatarColor % AvatarPalette.size])
                         .border(2.dp, ProfileInk.copy(alpha = 0.15f), CircleShape)
-                        .clickable(onClick = onCycleAvatar),
+                        .clickable {
+                            pickMedia.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        profile.name.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.displayLarge.copy(fontSize = 36.sp),
-                        color = Cream,
-                    )
+                    val path = profile.avatarPath
+                    if (!path.isNullOrBlank() && File(path).exists()) {
+                        AsyncImage(
+                            model = File(path),
+                            contentDescription = "Photo de profil",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Text(
+                            profile.name.firstOrNull()?.uppercase() ?: "?",
+                            style = MaterialTheme.typography.displayLarge.copy(fontSize = 36.sp),
+                            color = Cream,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(
@@ -143,9 +181,9 @@ fun ProfilePanel(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(modifier.height(4.dp))
                 Text(
-                    "Touche l’avatar pour la couleur",
+                    "Touche l’avatar pour choisir une photo",
                     fontSize = 13.sp,
                     color = ProfileMuted,
                 )
@@ -197,7 +235,7 @@ fun ProfilePanel(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Ajouter au crew",
+                    "Amis",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = ProfileMuted,
@@ -210,7 +248,7 @@ fun ProfilePanel(
                         value = friendNameDraft,
                         onValueChange = { friendNameDraft = it.removePrefix("@").take(30) },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("pseudo") },
+                        placeholder = { Text("pseudo Insta") },
                         singleLine = true,
                         shape = FieldShape,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -258,7 +296,7 @@ fun ProfilePanel(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Crew",
+                        "Tes amis",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = ProfileMuted,
@@ -269,7 +307,6 @@ fun ProfilePanel(
                         color = ProfileMuted,
                     )
                 }
-
                 if (state.friends.isEmpty()) {
                     Text(
                         "Personne pour l’instant — ajoute un pseudo au-dessus.",
@@ -281,7 +318,7 @@ fun ProfilePanel(
             }
         }
 
-        items(state.friends, key = { it.id }) { friend ->
+        items(state.friends, key = { "friend-${it.id}" }) { friend ->
             FriendRow(
                 friend = friend,
                 onRemove = { onRemoveFriend(friend.id) },
@@ -289,13 +326,214 @@ fun ProfilePanel(
         }
 
         item {
+            HorizontalDivider(color = ProfileLine, thickness = 1.dp)
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Groupes",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ProfileMuted,
+                )
+                Text(
+                    "Comme un chat de groupe : invite des amis ou partage le code.",
+                    fontSize = 13.sp,
+                    color = ProfileMuted,
+                )
+                OutlinedTextField(
+                    value = groupNameDraft,
+                    onValueChange = { groupNameDraft = it.take(64) },
+                    placeholder = { Text("Nom du groupe") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = FieldShape,
+                    colors = profileFieldColors(),
+                )
+                Button(
+                    onClick = {
+                        onCreateGroup(groupNameDraft)
+                        groupNameDraft = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ProfileInk,
+                        contentColor = Cream,
+                    ),
+                    shape = FieldShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                ) {
+                    Text("Créer un groupe", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = joinCodeDraft,
+                        onValueChange = {
+                            joinCodeDraft = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12)
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Code d’invitation") },
+                        singleLine = true,
+                        shape = FieldShape,
+                        colors = profileFieldColors(),
+                    )
+                    Button(
+                        onClick = {
+                            onJoinGroup(joinCodeDraft)
+                            joinCodeDraft = ""
+                        },
+                        shape = FieldShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ProfileSave,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.height(48.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                    ) {
+                        Text("Rejoindre", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
+        items(state.groups, key = { "group-${it.id}" }) { group ->
+            GroupCard(
+                group = group,
+                friends = state.friends,
+                myId = profile.id,
+                expanded = expandedGroupId == group.id,
+                onToggle = {
+                    expandedGroupId = if (expandedGroupId == group.id) null else group.id
+                },
+                onCopyCode = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("code", group.inviteCode))
+                },
+                onAddFriend = { friendId -> onAddFriendToGroup(group.id, friendId) },
+                onLeave = { onLeaveGroup(group.id) },
+            )
+        }
+
+        item {
             Text(
-                "Démo · lea · max · sam",
+                "Démo amis · lea · max · sam",
                 fontSize = 12.sp,
                 color = ProfileMuted.copy(alpha = 0.65f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+    }
+}
+
+@Composable
+private fun GroupCard(
+    group: CrewGroup,
+    friends: List<Friend>,
+    myId: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onCopyCode: () -> Unit,
+    onAddFriend: (String) -> Unit,
+    onLeave: () -> Unit,
+) {
+    val addable = friends.filter { it.id !in group.memberIds }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(ProfileField)
+            .border(1.dp, ProfileLine, RoundedCornerShape(14.dp))
+            .clickable(onClick = onToggle)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    group.name,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ProfileInk,
+                    fontSize = 16.sp,
+                )
+                Text(
+                    "${group.memberIds.size} membre${if (group.memberIds.size > 1) "s" else ""}",
+                    fontSize = 12.sp,
+                    color = ProfileMuted,
+                )
+            }
+            Text(
+                if (expanded) "▾" else "▸",
+                color = ProfileMuted,
+                fontSize = 16.sp,
+            )
+        }
+
+        if (expanded) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    "Code ${group.inviteCode}",
+                    fontWeight = FontWeight.Medium,
+                    color = ProfileInk,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onCopyCode) {
+                    Text("Copier", color = ProfileSave, fontWeight = FontWeight.Medium)
+                }
+            }
+
+            Text("Membres", fontSize = 12.sp, color = ProfileMuted, fontWeight = FontWeight.Medium)
+            group.memberIds.forEach { memberId ->
+                val label = if (memberId == myId) "@$memberId (toi)" else "@$memberId"
+                Text(label, color = ProfileInk, fontSize = 14.sp)
+            }
+
+            if (addable.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Ajouter un ami",
+                    fontSize = 12.sp,
+                    color = ProfileMuted,
+                    fontWeight = FontWeight.Medium,
+                )
+                addable.forEach { friend ->
+                    TextButton(
+                        onClick = { onAddFriend(friend.id) },
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                    ) {
+                        Text(
+                            "+ @${friend.name}",
+                            color = ProfileInk,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+            } else if (friends.isEmpty()) {
+                Text(
+                    "Ajoute d’abord des amis pour les inviter ici.",
+                    fontSize = 13.sp,
+                    color = ProfileMuted,
+                )
+            }
+
+            TextButton(onClick = onLeave) {
+                Text("Quitter le groupe", color = ProfileAccent, fontWeight = FontWeight.Medium)
+            }
         }
     }
 }
@@ -326,7 +564,7 @@ private fun FriendRow(friend: Friend, onRemove: () -> Unit) {
                 color = Cream,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 "@${friend.name}",

@@ -61,6 +61,8 @@ import com.dispo.app.ui.HomePanel
 import com.dispo.app.ui.LooneyRings
 import com.dispo.app.ui.MapScreen
 import com.dispo.app.ui.ProfilePanel
+import com.dispo.app.ui.STAR_BURST_MS
+import kotlinx.coroutines.delay
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.CircusRedDark
 import com.dispo.app.ui.theme.Cream
@@ -110,10 +112,11 @@ fun DispoApp() {
         repository.resetDispoOnLaunch()
     }
 
-    // Ouvre le chat automatiquement quand il se déverrouille
+    // Ouvre le chat après le burst d’étoiles (sinon le swipe coupe l’anim)
     val previousUnlocked = remember { mutableStateOf(state.chatUnlocked) }
     LaunchedEffect(state.chatUnlocked) {
         if (state.chatUnlocked && !previousUnlocked.value) {
+            if (state.meDispo) delay(STAR_BURST_MS.toLong())
             pagerState.animateScrollToPage(1, animationSpec = pageTransition)
         }
         previousUnlocked.value = state.chatUnlocked
@@ -185,14 +188,26 @@ fun DispoApp() {
                         onUpdateName = { name ->
                             scope.launch { repository.updateDisplayName(name) }
                         },
-                        onCycleAvatar = {
-                            scope.launch { repository.cycleAvatarColor() }
+                        onPickAvatar = { uri ->
+                            scope.launch { repository.setAvatarFromUri(uri) }
                         },
                         onAddFriend = { id ->
                             scope.launch { repository.addFriendById(id) }
                         },
                         onRemoveFriend = { id ->
                             scope.launch { repository.removeFriend(id) }
+                        },
+                        onCreateGroup = { name ->
+                            scope.launch { repository.createGroup(name) }
+                        },
+                        onJoinGroup = { code ->
+                            scope.launch { repository.joinGroupByCode(code) }
+                        },
+                        onAddFriendToGroup = { groupId, friendId ->
+                            scope.launch { repository.addFriendToGroup(groupId, friendId) }
+                        },
+                        onLeaveGroup = { groupId ->
+                            scope.launch { repository.leaveGroup(groupId) }
                         },
                         onClearFeedback = { repository.clearFeedback() },
                     )

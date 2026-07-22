@@ -1,14 +1,17 @@
 package com.dispo.app.core
 
 import android.content.Context
+import android.net.Uri
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.UUID
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +41,11 @@ class DispoRepository private constructor(private val appContext: Context) {
         private val KEY_USER_ID = stringPreferencesKey("user_id")
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
         private val KEY_AVATAR_COLOR = intPreferencesKey("avatar_color")
+        private val KEY_AVATAR_PATH = stringPreferencesKey("avatar_path")
         private val KEY_FRIENDS_JSON = stringPreferencesKey("friends_json")
+        private val KEY_GROUPS_JSON = stringPreferencesKey("groups_json")
+
+        private val CODE_ALPHABET = ('A'..'Z') + ('0'..'9')
 
         /** Annuaire démo : pseudos style Insta. */
         private val DIRECTORY = mapOf(
@@ -67,6 +74,7 @@ class DispoRepository private constructor(private val appContext: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val friendsFlow = MutableStateFlow<List<Friend>>(emptyList())
+    private val groupsFlow = MutableStateFlow<List<CrewGroup>>(emptyList())
     private val messagesFlow = MutableStateFlow<List<ChatMessage>>(emptyList())
     private val feedbackFlow = MutableStateFlow<String?>(null)
     private var nextMessageId = 1L
@@ -83,22 +91,23 @@ class DispoRepository private constructor(private val appContext: Context) {
             id = prefs[KEY_USER_ID] ?: "———",
             name = prefs[KEY_USER_NAME] ?: "Toi",
             avatarColor = prefs[KEY_AVATAR_COLOR] ?: 0,
+            avatarPath = prefs[KEY_AVATAR_PATH],
         )
     }
 
     val uiState = combine(
-        meDispoFlow,
-        profileFlow,
-        friendsFlow,
-        messagesFlow,
-        feedbackFlow,
-    ) { me, profile, friends, messages, feedback ->
+        combine(meDispoFlow, profileFlow, friendsFlow, groupsFlow) { me, profile, friends, groups ->
+            Quad(me, profile, friends, groups)
+        },
+        combine(messagesFlow, feedbackFlow) { messages, feedback -> messages to feedback },
+    ) { quad, msgFb ->
         DispoUiState(
-            meDispo = me,
-            profile = profile,
-            friends = friends,
-            messages = messages,
-            addFriendFeedback = feedback,
+            meDispo = quad.a,
+            profile = quad.b,
+            friends = quad.c,
+            groups = quad.d,
+            messages = msgFb.first,
+            addFriendFeedback = msgFb.second,
         )
     }.stateIn(scope, SharingStarted.Eagerly, DispoUiState())
 
@@ -106,6 +115,7 @@ class DispoRepository private constructor(private val appContext: Context) {
         scope.launch {
             ensureProfile()
             loadFriends()
+            loadGroups()
         }
     }
 
@@ -118,7 +128,6 @@ class DispoRepository private constructor(private val appContext: Context) {
                 it[KEY_AVATAR_COLOR] = Random.nextInt(0, 6)
             }
         } else if (prefs[KEY_USER_ID].isNullOrBlank()) {
-            // Migration : anciens comptes avec ID aléatoire → id = pseudo
             val name = prefs[KEY_USER_NAME]!!
             appContext.dataStore.edit {
                 it[KEY_USER_ID] = normalizeHandle(name).ifBlank { "toi" }
@@ -136,6 +145,16 @@ class DispoRepository private constructor(private val appContext: Context) {
         appContext.dataStore.edit { it[KEY_FRIENDS_JSON] = encodeFriends(friends) }
     }
 
+    private suspend fun loadGroups() {
+        val json = appContext.dataStore.data.first()[KEY_GROUPS_JSON]
+        groupsFlow.value = if (json.isNullOrBlank()) emptyList() else decodeGroups(json)
+    }
+
+    private suspend fun persistGroups(groups: List<CrewGroup>) {
+        groupsFlow.value = groups
+        appContext.dataStore.edit { it[KEY_GROUPS_JSON] = encodeGroups(groups) }
+    }
+
     private fun endOfDayMillis(): Long =
         LocalDate.now()
             .plusDays(1)
@@ -148,7 +167,6 @@ class DispoRepository private constructor(private val appContext: Context) {
             prefs[KEY_ACTIVE] = false
             prefs[KEY_EXPIRES_AT] = 0L
         }
-        // Remet les dispos amis à false (sauf qu'on rejouera la démo Léa si besoin)
         friendsFlow.value = friendsFlow.value.map { it.copy(dispo = false) }
         demoReplySent = false
     }
@@ -167,15 +185,42 @@ class DispoRepository private constructor(private val appContext: Context) {
     suspend fun updateDisplayName(name: String) {
         val handle = normalizeHandle(name)
         if (handle.isBlank()) return
+        val oldId = profileFlow.first().id
         appContext.dataStore.edit {
             it[KEY_USER_NAME] = handle
             it[KEY_USER_ID] = handle
+        }
+        if (oldId != handle) {
+            persistGroups(
+                groupsFlow.value.map { g ->
+                    g.copy(memberIds = g.memberIds.map { if (it == oldId) handle else it })
+                },
+            )
         }
     }
 
     suspend fun cycleAvatarColor() {
         val current = appContext.dataStore.data.first()[KEY_AVATAR_COLOR] ?: 0
         appContext.dataStore.edit { it[KEY_AVATAR_COLOR] = (current + 1) % 6 }
+    }
+
+    /** Copie la photo choisie dans le stockage privé de l'app. */
+    suspend fun setAvatarFromUri(uri: Uri) {
+        val dest = File(appContext.filesDir, "avatar.jpg")
+        appContext.contentResolver.openInputStream(uri)?.use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+        } ?: run {
+            feedbackFlow.value = "Impossible de lire la photo"
+            return
+        }
+        appContext.dataStore.edit { it[KEY_AVATAR_PATH] = dest.absolutePath }
+        feedbackFlow.value = "Photo mise à jour"
+    }
+
+    suspend fun clearAvatar() {
+        val path = appContext.dataStore.data.first()[KEY_AVATAR_PATH]
+        if (!path.isNullOrBlank()) File(path).delete()
+        appContext.dataStore.edit { it.remove(KEY_AVATAR_PATH) }
     }
 
     /**
@@ -194,7 +239,7 @@ class DispoRepository private constructor(private val appContext: Context) {
             return false
         }
         if (friendsFlow.value.any { it.id.equals(handle, ignoreCase = true) }) {
-            feedbackFlow.value = "Déjà dans ton crew"
+            feedbackFlow.value = "Déjà dans tes amis"
             return false
         }
 
@@ -210,7 +255,89 @@ class DispoRepository private constructor(private val appContext: Context) {
 
     suspend fun removeFriend(friendId: String) {
         persistFriends(friendsFlow.value.filterNot { it.id == friendId })
-        feedbackFlow.value = "Retiré du crew"
+        // Retire aussi des groupes
+        persistGroups(
+            groupsFlow.value.map { g ->
+                g.copy(memberIds = g.memberIds.filterNot { it == friendId })
+            },
+        )
+        feedbackFlow.value = "Retiré des amis"
+    }
+
+    suspend fun createGroup(rawName: String): Boolean {
+        val name = rawName.trim().take(64)
+        if (name.isBlank()) {
+            feedbackFlow.value = "Nom du groupe requis"
+            return false
+        }
+        val me = normalizeHandle(profileFlow.first().name).ifBlank { "toi" }
+        val group = CrewGroup(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            inviteCode = generateInviteCode(),
+            memberIds = listOf(me),
+        )
+        persistGroups(groupsFlow.value + group)
+        feedbackFlow.value = "Groupe « ${group.name} » créé"
+        return true
+    }
+
+    suspend fun joinGroupByCode(rawCode: String): Boolean {
+        val code = rawCode.trim().uppercase().filter { it.isLetterOrDigit() }.take(12)
+        if (code.length < 4) {
+            feedbackFlow.value = "Code invalide"
+            return false
+        }
+        val group = groupsFlow.value.find { it.inviteCode == code }
+        if (group == null) {
+            // Démo locale : pas de serveur — on ne peut rejoindre que des codes déjà connus
+            feedbackFlow.value = "Code inconnu (sur cet appareil)"
+            return false
+        }
+        val me = normalizeHandle(profileFlow.first().name).ifBlank { "toi" }
+        if (group.memberIds.contains(me)) {
+            feedbackFlow.value = "Tu es déjà dans ce groupe"
+            return false
+        }
+        persistGroups(
+            groupsFlow.value.map {
+                if (it.id == group.id) it.copy(memberIds = it.memberIds + me) else it
+            },
+        )
+        feedbackFlow.value = "Bienvenue dans « ${group.name} »"
+        return true
+    }
+
+    /** Ajoute un ami déjà connu dans le groupe. */
+    suspend fun addFriendToGroup(groupId: String, friendId: String): Boolean {
+        val friend = friendsFlow.value.find { it.id == friendId }
+        if (friend == null) {
+            feedbackFlow.value = "Ajoute-le d'abord en ami"
+            return false
+        }
+        val group = groupsFlow.value.find { it.id == groupId } ?: return false
+        if (group.memberIds.contains(friendId)) {
+            feedbackFlow.value = "Déjà dans le groupe"
+            return false
+        }
+        persistGroups(
+            groupsFlow.value.map {
+                if (it.id == groupId) it.copy(memberIds = it.memberIds + friendId) else it
+            },
+        )
+        feedbackFlow.value = "@${friend.name} ajouté·e au groupe"
+        return true
+    }
+
+    suspend fun leaveGroup(groupId: String) {
+        val me = normalizeHandle(profileFlow.first().name).ifBlank { "toi" }
+        val next = groupsFlow.value.mapNotNull { g ->
+            if (g.id != groupId) return@mapNotNull g
+            val members = g.memberIds.filterNot { it == me }
+            if (members.isEmpty()) null else g.copy(memberIds = members)
+        }
+        persistGroups(next)
+        feedbackFlow.value = "Tu as quitté le groupe"
     }
 
     fun clearFeedback() {
@@ -265,6 +392,15 @@ class DispoRepository private constructor(private val appContext: Context) {
         )
     }
 
+    private fun generateInviteCode(): String {
+        val existing = groupsFlow.value.map { it.inviteCode }.toSet()
+        repeat(40) {
+            val code = (1..8).map { CODE_ALPHABET.random() }.joinToString("")
+            if (code !in existing) return code
+        }
+        return UUID.randomUUID().toString().take(8).uppercase()
+    }
+
     private fun encodeFriends(friends: List<Friend>): String {
         val arr = JSONArray()
         friends.forEach { f ->
@@ -295,4 +431,41 @@ class DispoRepository private constructor(private val appContext: Context) {
             }
         }
     }
+
+    private fun encodeGroups(groups: List<CrewGroup>): String {
+        val arr = JSONArray()
+        groups.forEach { g ->
+            arr.put(
+                JSONObject()
+                    .put("id", g.id)
+                    .put("name", g.name)
+                    .put("inviteCode", g.inviteCode)
+                    .put("memberIds", JSONArray(g.memberIds)),
+            )
+        }
+        return arr.toString()
+    }
+
+    private fun decodeGroups(json: String): List<CrewGroup> {
+        val arr = JSONArray(json)
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val membersJson = o.getJSONArray("memberIds")
+                val memberIds = buildList {
+                    for (j in 0 until membersJson.length()) add(membersJson.getString(j))
+                }
+                add(
+                    CrewGroup(
+                        id = o.getString("id"),
+                        name = o.getString("name"),
+                        inviteCode = o.getString("inviteCode"),
+                        memberIds = memberIds,
+                    ),
+                )
+            }
+        }
+    }
+
+    private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 }

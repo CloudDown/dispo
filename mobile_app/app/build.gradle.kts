@@ -54,4 +54,5 @@ dependencies {
     implementation(libs.glance.material3)
 
     implementation(libs.osmdroid.android)
+    implementation(libs.coil.compose)
 }

@@ -67,9 +67,9 @@ fun HomePanel(
                 .align(Alignment.BottomCenter),
             contentAlignment = Alignment.Center,
         ) {
-            if (state.dispoCount == 1) {
+            if (state.chatUnlocked) {
                 Text(
-                    "Encore 1 pour le chat",
+                    "Chat ouvert",
                     color = SunYellow,
                     fontSize = 18.sp,
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),

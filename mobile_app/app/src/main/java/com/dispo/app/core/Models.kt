@@ -8,6 +8,8 @@ data class UserProfile(
     val name: String,
     /** Index de couleur d'avatar (0..palette-1). */
     val avatarColor: Int = 0,
+    /** Chemin local de la photo de profil (galerie), si choisie. */
+    val avatarPath: String? = null,
 )
 
 data class Friend(
@@ -15,6 +17,15 @@ data class Friend(
     val name: String,
     val avatarColor: Int = 0,
     val dispo: Boolean = false,
+)
+
+/** Groupe façon chat : amis déjà connus + code d'invitation. */
+data class CrewGroup(
+    val id: String,
+    val name: String,
+    val inviteCode: String,
+    /** Pseudos des membres (inclut toi). */
+    val memberIds: List<String>,
 )
 
 data class ChatMessage(
@@ -33,9 +44,10 @@ data class DispoUiState(
     val meDispo: Boolean = false,
     val profile: UserProfile = UserProfile(id = "toi", name = "toi"),
     val friends: List<Friend> = emptyList(),
+    val groups: List<CrewGroup> = emptyList(),
     val messages: List<ChatMessage> = emptyList(),
     val addFriendFeedback: String? = null,
 ) {
     val dispoCount: Int get() = (if (meDispo) 1 else 0) + friends.count { it.dispo }
-    val chatUnlocked: Boolean get() = dispoCount >= 2
+    val chatUnlocked: Boolean get() = dispoCount >= 1
 }

@@ -29,11 +29,24 @@ Endpoints principaux :
 | `/friends` | Ajouter / lister / retirer par ID |
 | `/groups` | Crews + codes d'invitation |
 | `/availability` | Toggle « je suis dispo » |
-| `/chat` | Messages de groupe (débloqué à 2 dispos) |
+| `/chat` | Messages de groupe (débloqué dès 1 dispo) |
 
 Comptes démo : `LEA001` / `MAX002` / `SAM003` (mdp `demo`), groupe `CREWDEMO`.
 
 ## Mobile
+
+### Android Studio
+
+Ouvre **`mobile_app/`** (pas la racine `dispo/`) :
+
+```
+File → Open → /chemin/vers/dispo/mobile_app
+```
+
+Config de lancement fournie : **`app`** (module `dispo.app.main`).  
+Après le sync Gradle, choisis `app` dans la liste Run et lance sur ton appareil.
+
+### Ligne de commande
 
 ```bash
 cd mobile_app

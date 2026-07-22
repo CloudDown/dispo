@@ -29,6 +29,10 @@ class JoinGroupRequest(SQLModel):
     invite_code: str
 
 
+class AddMemberRequest(SQLModel):
+    public_id: str
+
+
 class GroupMemberPublic(SQLModel):
     user_id: int
     public_id: str

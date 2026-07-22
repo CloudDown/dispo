@@ -43,6 +43,8 @@ Groupe démo : code invite `CREWDEMO`.
 
 ## Mobile
 
+Android Studio : ouvrir **`mobile_app/`** (pas la racine). Config Run : `app`.
+
 ```bash
 cd mobile_app
 ./gradlew assembleDebug
