@@ -1,9 +1,13 @@
 package com.dispo.app.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,12 +25,24 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -39,15 +55,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.ChatMessage
+import com.dispo.app.core.CrewGroup
 import com.dispo.app.core.DispoUiState
+import com.dispo.app.core.Friend
 import com.dispo.app.ui.theme.CircusPurple
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
@@ -58,71 +77,344 @@ import com.dispo.app.ui.theme.SunYellow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 
-private val BubbleMe = RoundedCornerShape(
-    topStart = 16.dp,
-    topEnd = 16.dp,
-    bottomStart = 16.dp,
-    bottomEnd = 4.dp,
-)
-private val BubbleOther = RoundedCornerShape(
-    topStart = 16.dp,
-    topEnd = 16.dp,
-    bottomStart = 4.dp,
-    bottomEnd = 16.dp,
-)
-
+private val BubbleMe = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)
+private val BubbleOther = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.FRANCE)
+private val ChipShape = RoundedCornerShape(999.dp)
+private val PanelShape = RoundedCornerShape(16.dp)
 
 @Composable
 fun ChatPanel(
     state: DispoUiState,
     onSend: (String) -> Unit,
     onOpenMap: () -> Unit,
+    onCreateGroup: (String) -> Unit,
+    onJoinGroup: (String) -> Unit,
+    onAddFriendToGroup: (groupId: String, friendId: String) -> Unit,
+    onLeaveGroup: (String) -> Unit,
+    onClearFeedback: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (!state.chatUnlocked) {
-        LockedChat(state, modifier)
-        return
-    }
+    var selectedGroupId by remember { mutableStateOf(state.groups.firstOrNull()?.id) }
+    var manageOpen by remember { mutableStateOf(state.groups.isEmpty()) }
 
-    val listState = rememberLazyListState()
-    LaunchedEffect(state.messages.size) {
-        if (state.messages.isNotEmpty()) {
-            // Scroll instantané = plus fluide qu'une anim concurrente au fling
-            listState.scrollToItem(state.messages.size - 1)
+    LaunchedEffect(state.groups) {
+        if (selectedGroupId == null || state.groups.none { it.id == selectedGroupId }) {
+            selectedGroupId = state.groups.firstOrNull()?.id
         }
     }
+    LaunchedEffect(state.addFriendFeedback) {
+        if (state.addFriendFeedback != null) {
+            delay(2200)
+            onClearFeedback()
+        }
+    }
+
+    val selectedGroup = state.groups.find { it.id == selectedGroupId }
 
     Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp)
-                .background(CircusRed, RoundedCornerShape(14.dp))
-                .border(3.dp, InkBrown, RoundedCornerShape(14.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                "LE CHAT DU SOIR",
-                style = MaterialTheme.typography.titleLarge,
-                color = Cream,
+        GroupsHeader(
+            groups = state.groups,
+            selectedGroupId = selectedGroupId,
+            manageOpen = manageOpen,
+            onSelect = {
+                selectedGroupId = it
+                manageOpen = false
+            },
+            onToggleManage = { manageOpen = !manageOpen },
+        )
+
+        when {
+            manageOpen -> GroupsManager(
+                state = state,
+                selectedGroup = selectedGroup,
+                onCreateGroup = onCreateGroup,
+                onJoinGroup = onJoinGroup,
+                onSelectGroup = {
+                    selectedGroupId = it
+                    manageOpen = false
+                },
+                onAddFriendToGroup = onAddFriendToGroup,
+                onLeaveGroup = onLeaveGroup,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
             )
-            Text(
-                "${state.dispoCount} dispos",
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
-                color = Cream,
+            !state.chatUnlocked -> LockedChat(Modifier = Modifier.weight(1f).fillMaxWidth())
+            else -> ChatThread(
+                state = state,
+                onSend = onSend,
+                onOpenMap = onOpenMap,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
             )
         }
+    }
+}
 
+@Composable
+private fun GroupsHeader(
+    groups: List<CrewGroup>,
+    selectedGroupId: String?,
+    manageOpen: Boolean,
+    onSelect: (String) -> Unit,
+    onToggleManage: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        groups.forEach { group ->
+            val selected = group.id == selectedGroupId && !manageOpen
+            Box(
+                modifier = Modifier
+                    .clip(ChipShape)
+                    .background(if (selected) SunYellow else Color.White)
+                    .border(2.dp, InkBrown, ChipShape)
+                    .clickable { onSelect(group.id) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    group.name,
+                    fontWeight = FontWeight.Bold,
+                    color = InkBrown,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        IconButton(
+            onClick = onToggleManage,
+            modifier = Modifier
+                .size(40.dp)
+                .background(if (manageOpen) DispoGreen else InkBrown, CircleShape)
+                .border(2.dp, InkBrown, CircleShape),
+        ) {
+            Icon(
+                imageVector = if (manageOpen) Icons.Filled.Close else Icons.Filled.GroupAdd,
+                contentDescription = if (manageOpen) "Fermer" else "Groupes",
+                tint = Cream,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupsManager(
+    state: DispoUiState,
+    selectedGroup: CrewGroup?,
+    onCreateGroup: (String) -> Unit,
+    onJoinGroup: (String) -> Unit,
+    onSelectGroup: (String) -> Unit,
+    onAddFriendToGroup: (groupId: String, friendId: String) -> Unit,
+    onLeaveGroup: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var groupNameDraft by remember { mutableStateOf("") }
+    var joinCodeDraft by remember { mutableStateOf("") }
+    var expandedId by remember { mutableStateOf(selectedGroup?.id) }
+
+    LazyColumn(
+        modifier = modifier.padding(horizontal = 12.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, PanelShape)
+                    .border(2.dp, InkBrown, PanelShape)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = groupNameDraft,
+                        onValueChange = { groupNameDraft = it.take(64) },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Nom") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = chatFieldColors(),
+                    )
+                    IconButton(
+                        onClick = {
+                            onCreateGroup(groupNameDraft)
+                            groupNameDraft = ""
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(InkBrown, CircleShape),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = "Créer", tint = Cream)
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = joinCodeDraft,
+                        onValueChange = {
+                            joinCodeDraft = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12)
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Code") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = chatFieldColors(),
+                    )
+                    IconButton(
+                        onClick = {
+                            onJoinGroup(joinCodeDraft)
+                            joinCodeDraft = ""
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(DispoGreen, CircleShape),
+                    ) {
+                        Icon(Icons.Filled.Check, contentDescription = "Rejoindre", tint = Color.White)
+                    }
+                }
+                state.addFriendFeedback?.let { msg ->
+                    Text(msg, color = DispoGreen, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+
+        items(state.groups, key = { it.id }) { group ->
+            GroupCard(
+                group = group,
+                friends = state.friends,
+                myId = state.profile.id,
+                expanded = expandedId == group.id,
+                onToggle = { expandedId = if (expandedId == group.id) null else group.id },
+                onOpenChat = { onSelectGroup(group.id) },
+                onCopyCode = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("code", group.inviteCode))
+                },
+                onAddFriend = { friendId -> onAddFriendToGroup(group.id, friendId) },
+                onLeave = { onLeaveGroup(group.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupCard(
+    group: CrewGroup,
+    friends: List<Friend>,
+    myId: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onOpenChat: () -> Unit,
+    onCopyCode: () -> Unit,
+    onAddFriend: (String) -> Unit,
+    onLeave: () -> Unit,
+) {
+    val addable = friends.filter { it.id !in group.memberIds }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(PanelShape)
+            .background(Color.White)
+            .border(2.dp, InkBrown, PanelShape)
+            .clickable(onClick = onToggle)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(Icons.Filled.Group, contentDescription = null, tint = CircusRed, modifier = Modifier.size(20.dp))
+            Text(
+                group.name,
+                fontWeight = FontWeight.Bold,
+                color = InkBrown,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text("${group.memberIds.size}", color = InkBrown.copy(alpha = 0.5f), fontSize = 13.sp)
+        }
+
+        if (expanded) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(
+                    onClick = onOpenChat,
+                    modifier = Modifier.size(40.dp).background(CircusRed, CircleShape),
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = "Ouvrir", tint = Cream, modifier = Modifier.size(18.dp))
+                }
+                IconButton(
+                    onClick = onCopyCode,
+                    modifier = Modifier.size(40.dp).background(SunYellow, CircleShape),
+                ) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copier", tint = InkBrown, modifier = Modifier.size(18.dp))
+                }
+                IconButton(
+                    onClick = onLeave,
+                    modifier = Modifier.size(40.dp).background(InkBrown.copy(alpha = 0.12f), CircleShape),
+                ) {
+                    Icon(Icons.Filled.ExitToApp, contentDescription = "Quitter", tint = CircusRed, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Text(group.inviteCode, fontFamily = LedFamily, fontSize = 18.sp, color = InkBrown.copy(alpha = 0.7f))
+
+            group.memberIds.forEach { id ->
+                Text(
+                    if (id == myId) "@$id ·" else "@$id",
+                    fontSize = 13.sp,
+                    color = InkBrown,
+                )
+            }
+
+            addable.forEach { friend ->
+                IconButton(
+                    onClick = { onAddFriend(friend.id) },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.PersonAdd, contentDescription = "Ajouter", tint = InkBrown, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("@${friend.name}", color = InkBrown, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatThread(
+    state: DispoUiState,
+    onSend: (String) -> Unit,
+    onOpenMap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(state.messages.size) {
+        if (state.messages.isNotEmpty()) listState.scrollToItem(state.messages.size - 1)
+    }
+
+    Column(modifier = modifier) {
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 10.dp),
         ) {
@@ -131,24 +423,26 @@ fun ChatPanel(
                 key = { it.id },
                 contentType = { if (it.authorId == state.profile.id) "me" else "other" },
             ) { msg ->
-                MessageBubble(
-                    msg = msg,
-                    myId = state.profile.id,
-                    onOpenMap = onOpenMap,
-                )
+                MessageBubble(msg = msg, myId = state.profile.id, onOpenMap = onOpenMap)
             }
         }
-
-        // Isolé : taper ne recompose pas toute la liste de messages
         ChatInputBar(onSend = onSend, onOpenMap = onOpenMap)
     }
 }
 
 @Composable
-private fun ChatInputBar(
-    onSend: (String) -> Unit,
-    onOpenMap: () -> Unit,
-) {
+private fun chatFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = CircusRed,
+    unfocusedBorderColor = InkBrown.copy(alpha = 0.3f),
+    focusedContainerColor = Cream,
+    unfocusedContainerColor = Cream,
+    cursorColor = CircusRed,
+    focusedTextColor = InkBrown,
+    unfocusedTextColor = InkBrown,
+)
+
+@Composable
+private fun ChatInputBar(onSend: (String) -> Unit, onOpenMap: () -> Unit) {
     var draft by remember { mutableStateOf("") }
     val sendDraft = {
         if (draft.isNotBlank()) {
@@ -162,12 +456,13 @@ private fun ChatInputBar(
             .imePadding()
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         OutlinedTextField(
             value = draft,
             onValueChange = { draft = it },
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Écris un message…", color = InkBrown.copy(alpha = 0.5f)) },
+            placeholder = { Text("…", color = InkBrown.copy(alpha = 0.4f)) },
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -179,16 +474,23 @@ private fun ChatInputBar(
                 unfocusedContainerColor = Color.White,
             ),
         )
-        Spacer(Modifier.width(6.dp))
-        Button(
+        IconButton(
             onClick = onOpenMap,
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
-            border = BorderStroke(3.dp, InkBrown),
-            modifier = Modifier.size(52.dp),
-            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier
+                .size(48.dp)
+                .background(CircusPurple, CircleShape)
+                .border(BorderStroke(2.dp, InkBrown), CircleShape),
         ) {
-            Text("📍", fontSize = 20.sp)
+            Icon(Icons.Filled.Place, contentDescription = "Carte", tint = Cream)
+        }
+        IconButton(
+            onClick = sendDraft,
+            modifier = Modifier
+                .size(48.dp)
+                .background(CircusRed, CircleShape)
+                .border(BorderStroke(2.dp, InkBrown), CircleShape),
+        ) {
+            Icon(Icons.Filled.Check, contentDescription = "Envoyer", tint = Cream)
         }
     }
 }
@@ -208,49 +510,34 @@ private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit)
             Avatar(name = msg.authorName)
             Spacer(Modifier.width(8.dp))
         }
-
         Column(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                // Pas de .shadow() : les ombres soft coûtent très cher au scroll
                 .background(if (isMe) SunYellow else Color.White, shape)
-                .border(2.5.dp, InkBrown, shape)
-                .then(
-                    if (msg.hasLocation) Modifier.clickable(onClick = onOpenMap) else Modifier
-                )
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .border(2.dp, InkBrown, shape)
+                .then(if (msg.hasLocation) Modifier.clickable(onClick = onOpenMap) else Modifier)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             if (!isMe) {
-                Text(
-                    msg.authorName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = CircusRed,
-                )
+                Text(msg.authorName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CircusRed)
             }
-            Text(
-                if (msg.hasLocation) "📍 ${msg.text}" else msg.text,
-                fontSize = 15.sp,
-                color = InkBrown,
-            )
             if (msg.hasLocation) {
-                Text(
-                    "Voir sur la carte →",
-                    fontSize = 13.sp,
-                    color = CircusPurple,
-                    fontWeight = FontWeight.Bold,
-                    textDecoration = TextDecoration.Underline,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Place, contentDescription = null, tint = CircusPurple, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(msg.text, fontSize = 15.sp, color = InkBrown)
+                }
+            } else {
+                Text(msg.text, fontSize = 15.sp, color = InkBrown)
             }
             Text(
                 timeText,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontFamily = LedFamily,
-                color = InkBrown.copy(alpha = 0.55f),
+                color = InkBrown.copy(alpha = 0.5f),
                 modifier = Modifier.align(Alignment.End),
             )
         }
-
         if (isMe) {
             Spacer(Modifier.width(8.dp))
             Avatar(name = msg.authorName)
@@ -260,53 +547,35 @@ private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit)
 
 @Composable
 private fun Avatar(name: String) {
-    val color = when (name) {
-        "Moi" -> DispoGreen
-        "Léa" -> CircusRed
-        "Max" -> CircusPurple
+    val color = when (name.lowercase()) {
+        "moi", "toi" -> DispoGreen
+        "lea", "léa" -> CircusRed
+        "max" -> CircusPurple
         else -> SunYellow
     }
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(34.dp)
             .background(color, CircleShape)
-            .border(2.5.dp, InkBrown, CircleShape),
+            .border(2.dp, InkBrown, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             name.first().uppercase(),
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
             color = Cream,
         )
     }
 }
 
 @Composable
-private fun LockedChat(state: DispoUiState, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Cream, RoundedCornerShape(20.dp))
-                .border(3.dp, InkBrown, RoundedCornerShape(20.dp))
-                .padding(24.dp),
-        ) {
-            Text("🎪", fontSize = 56.sp)
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "En attente d'une dispo…",
-                style = MaterialTheme.typography.titleLarge,
-                color = CircusRed,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Le chat s'ouvre dès qu'une personne a tapé le bouton.",
-                color = InkBrown,
-                fontSize = 15.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
+private fun LockedChat(modifier: Modifier = Modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.Filled.Lock,
+            contentDescription = null,
+            tint = InkBrown.copy(alpha = 0.25f),
+            modifier = Modifier.size(56.dp),
+        )
     }
 }

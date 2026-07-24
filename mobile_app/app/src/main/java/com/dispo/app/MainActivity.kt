@@ -182,6 +182,19 @@ fun DispoApp() {
                         state = state,
                         onSend = { text -> repository.sendMessage(text) },
                         onOpenMap = { mapOpen = true },
+                        onCreateGroup = { name ->
+                            scope.launch { repository.createGroup(name) }
+                        },
+                        onJoinGroup = { code ->
+                            scope.launch { repository.joinGroupByCode(code) }
+                        },
+                        onAddFriendToGroup = { groupId, friendId ->
+                            scope.launch { repository.addFriendToGroup(groupId, friendId) }
+                        },
+                        onLeaveGroup = { groupId ->
+                            scope.launch { repository.leaveGroup(groupId) }
+                        },
+                        onClearFeedback = { repository.clearFeedback() },
                     )
                     2 -> ProfilePanel(
                         state = state,
@@ -196,18 +209,6 @@ fun DispoApp() {
                         },
                         onRemoveFriend = { id ->
                             scope.launch { repository.removeFriend(id) }
-                        },
-                        onCreateGroup = { name ->
-                            scope.launch { repository.createGroup(name) }
-                        },
-                        onJoinGroup = { code ->
-                            scope.launch { repository.joinGroupByCode(code) }
-                        },
-                        onAddFriendToGroup = { groupId, friendId ->
-                            scope.launch { repository.addFriendToGroup(groupId, friendId) }
-                        },
-                        onLeaveGroup = { groupId ->
-                            scope.launch { repository.leaveGroup(groupId) }
                         },
                         onClearFeedback = { repository.clearFeedback() },
                     )
