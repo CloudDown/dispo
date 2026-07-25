@@ -24,6 +24,8 @@ val CircusPurple = Color(0xFF7B2CBF)
 val InkBrown = Color(0xFF3D2B1F)
 val LedAmber = Color(0xFFFFB300)
 val LedOff = Color(0xFF5A4632)
+val Gold = Color(0xFFE8C547)
+val GoldDark = Color(0xFFC9A020)
 
 /** Police display cartoon (titres, gros textes). */
 val BangersFamily = FontFamily(Font(R.font.bangers))

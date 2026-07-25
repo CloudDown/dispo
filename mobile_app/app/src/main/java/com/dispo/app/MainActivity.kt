@@ -62,13 +62,12 @@ import com.dispo.app.ui.LooneyRings
 import com.dispo.app.ui.MapScreen
 import com.dispo.app.ui.ProfilePanel
 import com.dispo.app.ui.STAR_BURST_MS
-import kotlinx.coroutines.delay
 import com.dispo.app.ui.theme.CircusRed
-import com.dispo.app.ui.theme.CircusRedDark
 import com.dispo.app.ui.theme.Cream
 import com.dispo.app.ui.theme.DispoTheme
 import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.widget.DispoWidget
+import kotlinx.coroutines.delay
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
 
@@ -122,12 +121,8 @@ fun DispoApp() {
         previousUnlocked.value = state.chatUnlocked
     }
 
-    // Le fond suit la page : rouge Looney Tunes sur l'accueil, crème ailleurs
-    val backgroundColor by animateColorAsState(
-        targetValue = if (pagerState.currentPage == 0) CircusRedDark else Cream,
-        animationSpec = tween(400),
-        label = "pageBackground",
-    )
+    // Fond crème partout ; le rouge reste en accent (onglets, chat, anneaux)
+    val backgroundColor = Cream
 
     Box(
         modifier = Modifier
@@ -241,7 +236,9 @@ fun DispoApp() {
                                 .then(
                                     if (selected) {
                                         Modifier.border(2.5.dp, InkBrown, RoundedCornerShape(16.dp))
-                                    } else Modifier
+                                    } else {
+                                        Modifier
+                                    },
                                 )
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },

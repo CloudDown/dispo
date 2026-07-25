@@ -15,7 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -26,12 +28,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.ui.theme.LedAmber
 import com.dispo.app.ui.theme.LedFamily
+
+/** Texte secondaire style barre LED (sans panneau sombre). */
+@Composable
+fun LedCaption(
+    text: String,
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 20.sp,
+    color: Color = InkBrown.copy(alpha = 0.65f),
+    textAlign: TextAlign = TextAlign.Start,
+) {
+    Text(
+        text = text,
+        modifier = modifier,
+        fontFamily = LedFamily,
+        fontSize = fontSize,
+        color = color,
+        letterSpacing = 1.sp,
+        textAlign = textAlign,
+    )
+}
 
 /**
  * Panneau "barre LED" : fond sombre, texte dot-matrix ambre avec halo,

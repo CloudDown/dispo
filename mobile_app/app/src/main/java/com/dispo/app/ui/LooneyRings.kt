@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import com.dispo.app.ui.theme.CircusOrange
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.CircusRedDark
+import com.dispo.app.ui.theme.Cream
 import com.dispo.app.ui.theme.SunYellow
 import kotlin.math.hypot
 
@@ -35,7 +36,7 @@ fun LooneyRings(modifier: Modifier = Modifier) {
         val coreOuter = size.minDimension * LOONEY_CORE_OUTER_FRACTION
         val coreYellow = size.minDimension * LOONEY_CORE_YELLOW_FRACTION
 
-        drawRect(color = CircusRedDark)
+        drawRect(color = Cream)
 
         val offset = phase * pairWidth
         var radius = maxRadius + pairWidth

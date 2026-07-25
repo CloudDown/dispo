@@ -18,11 +18,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.DispoUiState
-import com.dispo.app.ui.theme.Cream
+import com.dispo.app.ui.theme.DispoGreen
+import com.dispo.app.ui.theme.Gold
+import com.dispo.app.ui.theme.GoldDark
 import com.dispo.app.ui.theme.InkBrown
-import com.dispo.app.ui.theme.SunYellow
-
-/** Titre + hint. Le bouton vert est superposé au centre écran par DispoApp. */
 @Composable
 fun HomePanel(
     state: DispoUiState,
@@ -38,25 +37,25 @@ fun HomePanel(
             Text(
                 text = "DISPO",
                 style = MaterialTheme.typography.displayLarge.copy(
-                    color = Cream,
+                    color = Gold,
                     shadow = Shadow(
-                        color = InkBrown,
-                        offset = Offset(0f, 8f),
-                        blurRadius = 2f,
+                        color = GoldDark,
+                        offset = Offset(0f, 5f),
+                        blurRadius = 1f,
                     ),
                 ),
             )
             Spacer(Modifier.height(10.dp))
-            Text(
+            LedCaption(
                 text = if (state.meDispo) {
                     "Tu es dispo jusqu'à minuit"
                 } else {
                     "Tape le bouton si t'es chaud ce soir"
                 },
-                color = Cream,
-                fontSize = 16.sp,
+                fontSize = 22.sp,
+                color = InkBrown.copy(alpha = 0.75f),
                 textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -68,12 +67,12 @@ fun HomePanel(
             contentAlignment = Alignment.Center,
         ) {
             if (state.chatUnlocked) {
-                Text(
-                    "Chat ouvert",
-                    color = SunYellow,
-                    fontSize = 18.sp,
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+                LedCaption(
+                    text = "Chat ouvert",
+                    fontSize = 24.sp,
+                    color = DispoGreen,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
