@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,7 +32,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.PersonAdd
@@ -54,19 +54,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.ChatMessage
 import com.dispo.app.core.CrewGroup
 import com.dispo.app.core.DispoUiState
 import com.dispo.app.core.Friend
-import com.dispo.app.ui.theme.BangersFamily
 import com.dispo.app.ui.theme.CircusPurple
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
@@ -80,31 +84,45 @@ import com.dispo.app.ui.theme.DarkTextMuted
 import com.dispo.app.ui.theme.DispoGreen
 import com.dispo.app.ui.theme.Gold
 import com.dispo.app.ui.theme.GoldDark
-import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.ui.theme.LedFamily
 import com.dispo.app.ui.theme.SunYellow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 
 private enum class ChatSection { Messages, Groupes }
 
 private val BubbleMe = RoundedCornerShape(
-    topStart = 16.dp,
-    topEnd = 16.dp,
-    bottomStart = 16.dp,
-    bottomEnd = 4.dp,
+    topStart = 20.dp,
+    topEnd = 20.dp,
+    bottomStart = 20.dp,
+    bottomEnd = 6.dp,
 )
 private val BubbleOther = RoundedCornerShape(
-    topStart = 16.dp,
-    topEnd = 16.dp,
-    bottomStart = 4.dp,
-    bottomEnd = 16.dp,
+    topStart = 20.dp,
+    topEnd = 20.dp,
+    bottomStart = 6.dp,
+    bottomEnd = 20.dp,
 )
 private val CardShape = RoundedCornerShape(18.dp)
 
+private val BubbleMeBg = Color(0xFF2A5A3D)
+private val BubbleOtherBg = Color(0xFF2E2520)
+private val LocationCardBg = Color(0xFF1A2420)
+
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.FRANCE)
+
+/** Vert si succès, rouge si message d’erreur connu. */
+private fun feedbackColor(msg: String): Color {
+    val lower = msg.lowercase()
+    val isError = listOf(
+        "invalide", "inconnu", "requis", "déjà", "erreur", "échou", "pas de",
+        "impossible", "entre un", "propre nom",
+    ).any { it in lower }
+    return if (isError) CircusRed else DispoGreen
+}
 
 @Composable
 fun ChatPanel(
@@ -142,7 +160,7 @@ fun ChatPanel(
             onSelect = { section = it },
         )
 
-        Spacer(modifier.height(10.dp))
+        Spacer(Modifier.height(10.dp))
 
         when (section) {
             ChatSection.Messages -> ChatMessagesSection(
@@ -281,25 +299,39 @@ private fun ChatMessagesSection(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(DarkSurface, RoundedCornerShape(20.dp))
-                .border(2.5.dp, DarkBorder.copy(alpha = 0.5f), RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color(0xFF181410))
+                .border(1.5.dp, DarkBorder.copy(alpha = 0.35f), RoundedCornerShape(22.dp)),
         ) {
             if (state.messages.isEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text("💬", fontSize = 48.sp)
-                    Spacer(Modifier.height(12.dp))
-                    LedCaption(
-                        text = "Lance la conversation",
-                        fontSize = 22.sp,
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(Gold.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("💬", fontSize = 32.sp)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Rien pour l’instant",
+                        color = DarkText,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 17.sp,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Envoie un message ou un lieu sur la carte",
                         color = DarkTextMuted,
+                        fontSize = 14.sp,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             } else {
@@ -307,9 +339,9 @@ private fun ChatMessagesSection(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(vertical = 12.dp),
+                        .padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 14.dp),
                 ) {
                     items(
                         items = state.messages,
@@ -326,7 +358,7 @@ private fun ChatMessagesSection(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         ChatInputBar(onSend = onSend, onOpenMap = onOpenMap)
     }
 }
@@ -346,6 +378,14 @@ private fun ChatGroupsSection(
 ) {
     var joinCodeDraft by remember { mutableStateOf("") }
 
+    // Ne vide le champ qu’en cas de succès (sinon on perd le code après une erreur)
+    LaunchedEffect(state.addFriendFeedback) {
+        val msg = state.addFriendFeedback ?: return@LaunchedEffect
+        val lower = msg.lowercase()
+        val joinedOk = lower.startsWith("bienvenue") || "déjà dans ce groupe" in lower
+        if (joinedOk) joinCodeDraft = ""
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -363,7 +403,7 @@ private fun ChatGroupsSection(
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null, tint = Cream)
-                Spacer(modifier.width(8.dp))
+                Spacer(Modifier.width(8.dp))
                 Text("Créer un groupe", color = Cream, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }
         }
@@ -388,10 +428,7 @@ private fun ChatGroupsSection(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(
                         onDone = {
-                            if (joinCodeDraft.length >= 4) {
-                                onJoinGroup(joinCodeDraft)
-                                joinCodeDraft = ""
-                            }
+                            if (joinCodeDraft.length >= 4) onJoinGroup(joinCodeDraft)
                         },
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -405,10 +442,7 @@ private fun ChatGroupsSection(
                     ),
                 )
                 Button(
-                    onClick = {
-                        onJoinGroup(joinCodeDraft)
-                        joinCodeDraft = ""
-                    },
+                    onClick = { onJoinGroup(joinCodeDraft) },
                     enabled = joinCodeDraft.length >= 4,
                     modifier = Modifier.height(56.dp),
                     shape = RoundedCornerShape(14.dp),
@@ -430,7 +464,7 @@ private fun ChatGroupsSection(
             item {
                 Text(
                     msg,
-                    color = DispoGreen,
+                    color = feedbackColor(msg),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 2.dp),
@@ -665,16 +699,27 @@ private fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
-            .background(DarkSurface, RoundedCornerShape(28.dp))
-            .border(2.5.dp, DarkBorder, RoundedCornerShape(28.dp))
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .clip(RoundedCornerShape(28.dp))
+            .background(DarkSurfaceRaised)
+            .border(1.5.dp, DarkBorder.copy(alpha = 0.55f), RoundedCornerShape(28.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        IconButton(
+            onClick = onOpenMap,
+            modifier = Modifier
+                .size(42.dp)
+                .background(CircusPurple.copy(alpha = 0.85f), CircleShape),
+        ) {
+            Text("📍", fontSize = 16.sp)
+        }
         OutlinedTextField(
             value = draft,
             onValueChange = { draft = it },
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Écris un message…", color = DarkTextMuted) },
+            placeholder = {
+                Text("Message…", color = DarkTextMuted.copy(alpha = 0.75f), fontSize = 15.sp)
+            },
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -693,9 +738,9 @@ private fun ChatInputBar(
             onClick = sendDraft,
             enabled = draft.isNotBlank(),
             modifier = Modifier
-                .size(44.dp)
+                .size(42.dp)
                 .background(
-                    if (draft.isNotBlank()) DispoGreen else DarkBorder.copy(alpha = 0.5f),
+                    if (draft.isNotBlank()) DispoGreen else DarkBorder.copy(alpha = 0.45f),
                     CircleShape,
                 ),
         ) {
@@ -703,19 +748,8 @@ private fun ChatInputBar(
                 Icons.AutoMirrored.Filled.Send,
                 contentDescription = "Envoyer",
                 tint = if (draft.isNotBlank()) Cream else DarkTextMuted,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
             )
-        }
-        Spacer(Modifier.width(4.dp))
-        Button(
-            onClick = onOpenMap,
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
-            border = BorderStroke(2.5.dp, DarkBorder),
-            modifier = Modifier.size(44.dp),
-            contentPadding = PaddingValues(0.dp),
-        ) {
-            Text("📍", fontSize = 18.sp)
         }
     }
 }
@@ -737,44 +771,52 @@ private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit)
         }
 
         Column(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(if (isMe) SunYellow else Cream, shape)
-                .border(2.5.dp, InkBrown.copy(alpha = 0.35f), shape)
-                .then(
-                    if (msg.hasLocation) Modifier.clickable(onClick = onOpenMap) else Modifier,
-                )
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.widthIn(max = 290.dp),
+            horizontalAlignment = if (isMe) Alignment.End else Alignment.Start,
         ) {
-            if (!isMe) {
-                Text(
-                    msg.authorName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = CircusRed,
-                )
-            }
-            Text(
-                if (msg.hasLocation) "📍 ${msg.text}" else msg.text,
-                fontSize = 15.sp,
-                color = InkBrown,
-            )
             if (msg.hasLocation) {
-                Text(
-                    "Voir sur la carte →",
-                    fontSize = 13.sp,
-                    color = CircusPurple,
-                    fontWeight = FontWeight.Bold,
-                    textDecoration = TextDecoration.Underline,
+                LocationBubble(
+                    msg = msg,
+                    isMe = isMe,
+                    shape = shape,
+                    timeText = timeText,
+                    onOpenMap = onOpenMap,
                 )
+            } else {
+                Column(
+                    modifier = Modifier
+                        .background(if (isMe) BubbleMeBg else BubbleOtherBg, shape)
+                        .border(
+                            1.dp,
+                            if (isMe) DispoGreen.copy(alpha = 0.35f) else DarkBorder.copy(alpha = 0.4f),
+                            shape,
+                        )
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    if (!isMe) {
+                        Text(
+                            msg.authorName,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Gold,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    Text(
+                        msg.text,
+                        fontSize = 15.sp,
+                        color = DarkText,
+                        lineHeight = 20.sp,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        timeText,
+                        fontSize = 11.sp,
+                        color = DarkTextMuted,
+                        modifier = Modifier.align(Alignment.End),
+                    )
+                }
             }
-            Text(
-                timeText,
-                fontSize = 13.sp,
-                fontFamily = LedFamily,
-                color = InkBrown.copy(alpha = 0.55f),
-                modifier = Modifier.align(Alignment.End),
-            )
         }
 
         if (isMe) {
@@ -782,6 +824,209 @@ private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit)
             Avatar(name = msg.authorName)
         }
     }
+}
+
+@Composable
+private fun LocationBubble(
+    msg: ChatMessage,
+    isMe: Boolean,
+    shape: RoundedCornerShape,
+    timeText: String,
+    onOpenMap: () -> Unit,
+) {
+    val lat = msg.lat ?: return
+    val lon = msg.lon ?: return
+    val coords = remember(lat, lon) { formatCoords(lat, lon) }
+
+    Column(
+        modifier = Modifier
+            .widthIn(min = 236.dp, max = 290.dp)
+            .clip(shape)
+            .background(LocationCardBg)
+            .border(1.5.dp, Gold.copy(alpha = 0.35f), shape)
+            .clickable(onClick = onOpenMap),
+    ) {
+        // Aperçu carte illustré
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(118.dp),
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawLocationMapPreview()
+            }
+            // Voile bas pour le titre
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                        ),
+                    ),
+            )
+            // Pin central
+            Box(
+                modifier = Modifier.align(Alignment.Center),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(DispoGreen.copy(alpha = 0.25f), CircleShape),
+                )
+                Text("📍", fontSize = 26.sp)
+            }
+            Text(
+                "Lieu partagé",
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DarkSurface.copy(alpha = 0.75f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                color = Gold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (!isMe) {
+                Text(
+                    "@${msg.authorName}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Gold,
+                )
+            }
+            if (msg.text.isNotBlank()) {
+                Text(
+                    msg.text,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = DarkText,
+                    lineHeight = 20.sp,
+                )
+            }
+            Text(
+                coords,
+                fontFamily = LedFamily,
+                fontSize = 15.sp,
+                color = DarkTextMuted,
+                letterSpacing = 0.5.sp,
+            )
+            Spacer(Modifier.height(2.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(DispoGreen.copy(alpha = 0.18f))
+                    .border(1.dp, DispoGreen.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Voir sur la carte",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = DispoGreen,
+                )
+                Text("→", fontSize = 16.sp, color = DispoGreen)
+            }
+            Text(
+                timeText,
+                fontSize = 11.sp,
+                color = DarkTextMuted.copy(alpha = 0.8f),
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+private fun formatCoords(lat: Double, lon: Double): String {
+    val latHem = if (lat >= 0) "N" else "S"
+    val lonHem = if (lon >= 0) "E" else "O"
+    return String.format(
+        Locale.US,
+        "%.4f° %s  ·  %.4f° %s",
+        abs(lat),
+        latHem,
+        abs(lon),
+        lonHem,
+    )
+}
+
+private fun DrawScope.drawLocationMapPreview() {
+    val canvas = this.size
+    // Fond terrain
+    drawRect(
+        brush = Brush.verticalGradient(
+            listOf(
+                Color(0xFF2C4A38),
+                Color(0xFF1E3328),
+                Color(0xFF16241E),
+            ),
+        ),
+    )
+    // Routes horizontales
+    val road = Color(0xFF4A6354).copy(alpha = 0.55f)
+    val roadMain = Color(0xFF6B8574).copy(alpha = 0.45f)
+    for (i in 1..5) {
+        val y = canvas.height * (i / 6f)
+        drawLine(
+            color = if (i == 3) roadMain else road,
+            start = Offset(0f, y),
+            end = Offset(canvas.width, y),
+            strokeWidth = if (i == 3) 3.5f else 1.8f,
+        )
+    }
+    // Routes verticales
+    for (i in 1..4) {
+        val x = canvas.width * (i / 5f)
+        drawLine(
+            color = if (i == 2) roadMain else road,
+            start = Offset(x, 0f),
+            end = Offset(x, canvas.height),
+            strokeWidth = if (i == 2) 3.5f else 1.8f,
+        )
+    }
+    // Blocs « bâtiments »
+    val block = Color(0xFF24382E).copy(alpha = 0.7f)
+    listOf(
+        Offset(canvas.width * 0.08f, canvas.height * 0.12f) to Size(canvas.width * 0.22f, canvas.height * 0.18f),
+        Offset(canvas.width * 0.58f, canvas.height * 0.08f) to Size(canvas.width * 0.28f, canvas.height * 0.22f),
+        Offset(canvas.width * 0.12f, canvas.height * 0.58f) to Size(canvas.width * 0.26f, canvas.height * 0.2f),
+        Offset(canvas.width * 0.62f, canvas.height * 0.55f) to Size(canvas.width * 0.24f, canvas.height * 0.24f),
+    ).forEach { (origin, blockSize) ->
+        drawRoundRect(
+            color = block,
+            topLeft = origin,
+            size = blockSize,
+            cornerRadius = CornerRadius(6f, 6f),
+        )
+    }
+    // Halo autour du centre
+    val center = Offset(canvas.width / 2f, canvas.height / 2f)
+    val halo = canvas.minDimension * 0.35f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                DispoGreen.copy(alpha = 0.35f),
+                Color.Transparent,
+            ),
+            center = center,
+            radius = halo,
+        ),
+        radius = halo,
+        center = center,
+    )
 }
 
 @Composable
@@ -800,7 +1045,7 @@ private fun Avatar(name: String) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            name.first().uppercase(),
+            name.firstOrNull()?.uppercase() ?: "?",
             style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
             color = Cream,
         )

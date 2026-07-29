@@ -84,6 +84,15 @@ val AvatarPalette = listOf(
 
 private val CardShape = RoundedCornerShape(20.dp)
 
+private fun feedbackColor(msg: String): Color {
+    val lower = msg.lowercase()
+    val isError = listOf(
+        "invalide", "inconnu", "requis", "déjà", "erreur", "échou", "pas de",
+        "impossible", "entre un", "propre nom",
+    ).any { it in lower }
+    return if (isError) CircusRed else DispoGreen
+}
+
 @Composable
 fun ProfilePanel(
     state: DispoUiState,
@@ -194,7 +203,7 @@ fun ProfilePanel(
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         msg,
-                        color = DispoGreen,
+                        color = feedbackColor(msg),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                     )
@@ -399,7 +408,7 @@ private fun FriendRow(friend: Friend, onRemove: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                friend.name.first().uppercase(),
+                friend.name.firstOrNull()?.uppercase() ?: "?",
                 fontFamily = BangersFamily,
                 fontSize = 18.sp,
                 color = Cream,

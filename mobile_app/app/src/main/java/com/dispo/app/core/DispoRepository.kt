@@ -167,7 +167,8 @@ class DispoRepository private constructor(private val appContext: Context) {
             prefs[KEY_ACTIVE] = false
             prefs[KEY_EXPIRES_AT] = 0L
         }
-        friendsFlow.value = friendsFlow.value.map { it.copy(dispo = false) }
+        // Persiste aussi : sinon un ami dispo sauvé au disque peut débloquer le chat au boot
+        persistFriends(friendsFlow.value.map { it.copy(dispo = false) })
         demoReplySent = false
     }
 

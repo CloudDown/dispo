@@ -328,8 +328,7 @@ fun DispoApp() {
             MapScreen(
                 pins = state.messages.filter { it.hasLocation },
                 onPickLocation = { lat, lon ->
-                    repository.sendMessage("On se retrouve ici !", lat = lat, lon = lon)
-                    mapOpen = false
+                    repository.sendMessage("", lat = lat, lon = lon)
                 },
                 onClose = { mapOpen = false },
             )

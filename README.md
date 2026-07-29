@@ -60,9 +60,9 @@ Le serveur est prêt ; le branchement Retrofit (comme Vif) est la prochaine éta
 ## Concept produit
 
 - Gros bouton central : pas dispo → dispo jusqu'à minuit
-- Chat déverrouillé dès que 2 personnes du crew sont dispos
+- Chat déverrouillé dès qu'**au moins 1** personne du crew est dispo
 - Carte plein écran pour envoyer un lieu (pin + **Envoyer**)
-- Profil : nom, ID public, avatar, ajout d'amis par ID
+- Profil : nom, avatar, paramètres (pseudo, ajout d'amis)
 
 ## Stack
 

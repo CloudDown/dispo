@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -18,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,18 +29,25 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.dispo.app.R
 import com.dispo.app.core.ChatMessage
-import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
+import com.dispo.app.ui.theme.DarkBorder
+import com.dispo.app.ui.theme.DarkSurface
+import com.dispo.app.ui.theme.DarkText
+import com.dispo.app.ui.theme.DarkTextMuted
 import com.dispo.app.ui.theme.DispoGreen
-import com.dispo.app.ui.theme.InkBrown
+import com.dispo.app.ui.theme.Gold
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -52,7 +59,7 @@ import org.osmdroid.views.overlay.Marker
 
 /**
  * Écran carte plein écran. Un tap place un pin provisoire ;
- * « Appliquer » confirme et envoie le lieu dans le chat.
+ * « Envoyer » confirme et envoie le lieu dans le chat.
  */
 @Composable
 fun MapScreen(
@@ -74,15 +81,44 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+        // Voile doux en haut / bas pour lisibilité des contrôles
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                    ),
+                ),
+        )
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .safeDrawingPadding(),
+        ) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(14.dp)
-                    .size(52.dp)
-                    .shadow(6.dp, CircleShape)
-                    .background(CircusRed, CircleShape)
-                    .border(3.dp, InkBrown, CircleShape)
+                    .padding(16.dp)
+                    .size(44.dp)
+                    .shadow(8.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(DarkSurface.copy(alpha = 0.92f))
+                    .border(1.5.dp, DarkBorder.copy(alpha = 0.7f), CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -90,12 +126,22 @@ fun MapScreen(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "✕",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
-                    color = Cream,
-                )
+                Text("✕", fontSize = 18.sp, color = DarkText, fontWeight = FontWeight.Medium)
             }
+
+            Text(
+                if (draft == null) "Touche la carte pour placer un lieu" else "Lieu sélectionné",
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 18.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(DarkSurface.copy(alpha = 0.88f))
+                    .border(1.dp, DarkBorder.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                color = if (draft == null) DarkTextMuted else Gold,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
 
             if (draft != null) {
                 Button(
@@ -107,15 +153,18 @@ fun MapScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(16.dp)
-                        .fillMaxWidth(0.7f),
-                    shape = RoundedCornerShape(18.dp),
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
-                    border = BorderStroke(3.dp, InkBrown),
+                    border = BorderStroke(1.5.dp, Cream.copy(alpha = 0.2f)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
                 ) {
                     Text(
-                        "ENVOYER",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
+                        "Envoyer ce lieu",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Cream,
                     )
                 }
@@ -132,6 +181,8 @@ fun CircusMap(
     onMapTap: ((lat: Double, lon: Double) -> Unit)? = null,
 ) {
     val currentOnTap by rememberUpdatedState(onMapTap)
+    // Évite de recentrer la carte à chaque recomposition tant que le pin n’a pas bougé
+    val lastAnimatedDraft = remember { mutableStateOf<GeoPoint?>(null) }
 
     AndroidView(
         modifier = modifier,
@@ -152,10 +203,10 @@ fun CircusMap(
             val pinDrawable = ContextCompat.getDrawable(mapView.context, R.drawable.pin_circus)
             mapView.overlays.removeAll { it is Marker }
 
-            pins.forEach { msg ->
+            pins.filter { it.hasLocation }.forEach { msg ->
                 val marker = Marker(mapView).apply {
                     position = GeoPoint(msg.lat!!, msg.lon!!)
-                    title = "${msg.authorName} : ${msg.text}"
+                    title = msg.authorName
                     icon = pinDrawable
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
@@ -170,7 +221,16 @@ fun CircusMap(
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
                 mapView.overlays.add(draftMarker)
-                mapView.controller.animateTo(point)
+                val prev = lastAnimatedDraft.value
+                val moved = prev == null ||
+                    prev.latitude != point.latitude ||
+                    prev.longitude != point.longitude
+                if (moved) {
+                    mapView.controller.animateTo(point)
+                    lastAnimatedDraft.value = point
+                }
+            } ?: run {
+                lastAnimatedDraft.value = null
             }
 
             mapView.invalidate()
@@ -194,7 +254,7 @@ private fun createMapView(context: Context): MapView {
                 0f, 1.0f, 0f, 0f, 6f,
                 0f, 0f, 0.86f, 0f, -8f,
                 0f, 0f, 0f, 1f, 0f,
-            )
+            ),
         )
         warm.preConcat(desaturate)
         overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(warm))
