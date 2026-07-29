@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -44,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +70,13 @@ import com.dispo.app.ui.theme.BangersFamily
 import com.dispo.app.ui.theme.CircusPurple
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
+import com.dispo.app.ui.theme.DarkBg
+import com.dispo.app.ui.theme.DarkBorder
+import com.dispo.app.ui.theme.DarkField
+import com.dispo.app.ui.theme.DarkSurface
+import com.dispo.app.ui.theme.DarkSurfaceRaised
+import com.dispo.app.ui.theme.DarkText
+import com.dispo.app.ui.theme.DarkTextMuted
 import com.dispo.app.ui.theme.DispoGreen
 import com.dispo.app.ui.theme.Gold
 import com.dispo.app.ui.theme.GoldDark
@@ -102,7 +111,8 @@ fun ChatPanel(
     state: DispoUiState,
     onSend: (String) -> Unit,
     onOpenMap: () -> Unit,
-    onCreateGroup: (String) -> Unit,
+    onCreateGroup: (onCreated: (groupId: String) -> Unit) -> Unit,
+    onRenameGroup: (groupId: String, name: String) -> Unit,
     onJoinGroup: (String) -> Unit,
     onAddFriendToGroup: (groupId: String, friendId: String) -> Unit,
     onLeaveGroup: (String) -> Unit,
@@ -111,6 +121,7 @@ fun ChatPanel(
 ) {
     var section by remember { mutableStateOf(ChatSection.Messages) }
     var expandedGroupId by remember { mutableStateOf<String?>(null) }
+    var renameGroupId by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     LaunchedEffect(state.addFriendFeedback) {
@@ -125,52 +136,13 @@ fun ChatPanel(
             .fillMaxSize()
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CircusRed, RoundedCornerShape(18.dp))
-                .border(3.dp, InkBrown, RoundedCornerShape(18.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
-                Text(
-                    "LE CHAT DU SOIR",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
-                    color = Gold,
-                )
-                Text(
-                    if (state.chatUnlocked) "🎪 Tout le monde est là" else "🎪 En attente d'une dispo",
-                    fontFamily = LedFamily,
-                    fontSize = 18.sp,
-                    color = Cream.copy(alpha = 0.9f),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .background(Cream, RoundedCornerShape(12.dp))
-                    .border(2.dp, InkBrown, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    "${state.dispoCount} dispos",
-                    fontFamily = LedFamily,
-                    fontSize = 16.sp,
-                    color = InkBrown,
-                )
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
         ChatSectionToggle(
             selected = section,
             groupCount = state.groups.size,
             onSelect = { section = it },
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(modifier.height(10.dp))
 
         when (section) {
             ChatSection.Messages -> ChatMessagesSection(
@@ -186,10 +158,13 @@ fun ChatPanel(
                 onExpandGroup = { id ->
                     expandedGroupId = if (expandedGroupId == id) null else id
                 },
-                onCreateGroup = { name ->
-                    onCreateGroup(name)
-                    section = ChatSection.Groupes
+                onCreateGroup = {
+                    onCreateGroup { id ->
+                        renameGroupId = id
+                        expandedGroupId = id
+                    }
                 },
+                onRequestRename = { id -> renameGroupId = id },
                 onJoinGroup = onJoinGroup,
                 onCopyCode = { code ->
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -199,6 +174,18 @@ fun ChatPanel(
                 onLeaveGroup = onLeaveGroup,
             )
         }
+    }
+
+    renameGroupId?.let { groupId ->
+        val currentName = state.groups.find { it.id == groupId }?.name.orEmpty()
+        RenameGroupDialog(
+            initialName = currentName,
+            onDismiss = { renameGroupId = null },
+            onConfirm = { name ->
+                onRenameGroup(groupId, name)
+                renameGroupId = null
+            },
+        )
     }
 }
 
@@ -239,14 +226,14 @@ private fun ChatSectionChip(
     modifier: Modifier = Modifier,
     badge: String? = null,
 ) {
-    val bg = if (selected) CircusRed else Color.White
-    val textColor = if (selected) Cream else InkBrown
+    val bg = if (selected) CircusRed else DarkSurface
+    val textColor = if (selected) Cream else DarkTextMuted
     Row(
         modifier = modifier
             .background(bg, RoundedCornerShape(14.dp))
             .border(
                 width = if (selected) 2.5.dp else 2.dp,
-                color = if (selected) InkBrown else InkBrown.copy(alpha = 0.2f),
+                color = if (selected) DarkBorder else DarkBorder.copy(alpha = 0.6f),
                 shape = RoundedCornerShape(14.dp),
             )
             .clickable(onClick = onClick)
@@ -264,7 +251,7 @@ private fun ChatSectionChip(
                     .background(if (selected) Gold else DispoGreen, CircleShape)
                     .padding(horizontal = 7.dp, vertical = 2.dp),
             ) {
-                Text(badge, fontSize = 12.sp, color = InkBrown, fontWeight = FontWeight.Bold)
+                Text(badge, fontSize = 12.sp, color = DarkBg, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -294,8 +281,8 @@ private fun ChatMessagesSection(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(20.dp))
-                .border(2.5.dp, InkBrown.copy(alpha = 0.18f), RoundedCornerShape(20.dp)),
+                .background(DarkSurface, RoundedCornerShape(20.dp))
+                .border(2.5.dp, DarkBorder.copy(alpha = 0.5f), RoundedCornerShape(20.dp)),
         ) {
             if (state.messages.isEmpty()) {
                 Column(
@@ -310,6 +297,7 @@ private fun ChatMessagesSection(
                     LedCaption(
                         text = "Lance la conversation",
                         fontSize = 22.sp,
+                        color = DarkTextMuted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -348,97 +336,92 @@ private fun ChatGroupsSection(
     state: DispoUiState,
     expandedGroupId: String?,
     onExpandGroup: (String) -> Unit,
-    onCreateGroup: (String) -> Unit,
+    onCreateGroup: () -> Unit,
+    onRequestRename: (String) -> Unit,
     onJoinGroup: (String) -> Unit,
     onCopyCode: (String) -> Unit,
     onAddFriendToGroup: (String, String) -> Unit,
     onLeaveGroup: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var groupNameDraft by remember { mutableStateOf("") }
     var joinCodeDraft by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(bottom = 12.dp),
     ) {
         item {
-            GroupActionCard(
-                step = "1",
-                title = "Créer un groupe",
-                hint = "Donne un nom à ton crew du soir",
+            Button(
+                onClick = onCreateGroup,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
+                border = BorderStroke(2.dp, DarkBorder),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
             ) {
-                ChatGroupField(
-                    value = groupNameDraft,
-                    onValueChange = { groupNameDraft = it.take(64) },
-                    placeholder = "Ex : Les copains du vendredi",
-                    onDone = {
-                        if (groupNameDraft.isNotBlank()) {
-                            onCreateGroup(groupNameDraft)
-                            groupNameDraft = ""
-                        }
-                    },
-                )
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        onCreateGroup(groupNameDraft)
-                        groupNameDraft = ""
-                    },
-                    enabled = groupNameDraft.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DispoGreen,
-                        disabledContainerColor = InkBrown.copy(alpha = 0.12f),
-                    ),
-                    border = BorderStroke(2.5.dp, InkBrown.copy(alpha = 0.25f)),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = Cream)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Créer le groupe", fontFamily = LedFamily, fontSize = 20.sp, color = Cream)
-                }
+                Icon(Icons.Filled.Add, contentDescription = null, tint = Cream)
+                Spacer(modifier.width(8.dp))
+                Text("Créer un groupe", color = Cream, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }
         }
 
         item {
-            GroupActionCard(
-                step = "2",
-                title = "Rejoindre un groupe",
-                hint = "Entre le code reçu d'un pote",
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ChatGroupField(
+                OutlinedTextField(
                     value = joinCodeDraft,
                     onValueChange = {
                         joinCodeDraft = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12)
                     },
-                    placeholder = "CODE INVITATION",
-                    onDone = {
-                        if (joinCodeDraft.isNotBlank()) {
-                            onJoinGroup(joinCodeDraft)
-                            joinCodeDraft = ""
-                        }
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text("Code d’invitation", color = DarkTextMuted.copy(alpha = 0.7f), fontSize = 14.sp)
                     },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (joinCodeDraft.length >= 4) {
+                                onJoinGroup(joinCodeDraft)
+                                joinCodeDraft = ""
+                            }
+                        },
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Gold,
+                        unfocusedBorderColor = DarkBorder.copy(alpha = 0.6f),
+                        focusedContainerColor = DarkField,
+                        unfocusedContainerColor = DarkField,
+                        cursorColor = Gold,
+                        focusedTextColor = DarkText,
+                        unfocusedTextColor = DarkText,
+                    ),
                 )
-                Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = {
                         onJoinGroup(joinCodeDraft)
                         joinCodeDraft = ""
                     },
                     enabled = joinCodeDraft.length >= 4,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.height(56.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Gold,
-                        disabledContainerColor = InkBrown.copy(alpha = 0.12f),
+                        disabledContainerColor = DarkBorder.copy(alpha = 0.35f),
+                        contentColor = DarkBg,
+                        disabledContentColor = DarkTextMuted,
                     ),
-                    border = BorderStroke(2.5.dp, InkBrown.copy(alpha = 0.25f)),
+                    border = BorderStroke(2.dp, DarkBorder.copy(alpha = 0.6f)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                 ) {
-                    Icon(Icons.Filled.Check, contentDescription = null, tint = InkBrown)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Rejoindre", fontFamily = LedFamily, fontSize = 20.sp, color = InkBrown)
+                    Text("OK", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -448,39 +431,31 @@ private fun ChatGroupsSection(
                 Text(
                     msg,
                     color = DispoGreen,
-                    fontFamily = LedFamily,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 2.dp),
                 )
             }
         }
 
         item {
             Text(
-                "Tes groupes (${state.groups.size})",
-                fontFamily = BangersFamily,
-                fontSize = 22.sp,
-                color = GoldDark,
+                "Tes groupes",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = DarkTextMuted,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
 
         if (state.groups.isEmpty()) {
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White, CardShape)
-                        .border(2.dp, InkBrown.copy(alpha = 0.12f), CardShape)
-                        .padding(20.dp),
-                ) {
-                    LedCaption(
-                        text = "Aucun groupe pour l'instant — crée-en un ci-dessus",
-                        fontSize = 20.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                Text(
+                    "Aucun groupe pour l’instant.",
+                    color = DarkTextMuted,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
             }
         } else {
             items(state.groups, key = { it.id }) { group ->
@@ -490,6 +465,7 @@ private fun ChatGroupsSection(
                     myId = state.profile.id,
                     expanded = expandedGroupId == group.id,
                     onToggle = { onExpandGroup(group.id) },
+                    onRename = { onRequestRename(group.id) },
                     onCopyCode = { onCopyCode(group.inviteCode) },
                     onAddFriend = { onAddFriendToGroup(group.id, it) },
                     onLeave = { onLeaveGroup(group.id) },
@@ -500,65 +476,54 @@ private fun ChatGroupsSection(
 }
 
 @Composable
-private fun GroupActionCard(
-    step: String,
-    title: String,
-    hint: String,
-    content: @Composable () -> Unit,
+private fun RenameGroupDialog(
+    initialName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White, CardShape)
-            .border(2.5.dp, InkBrown.copy(alpha = 0.15f), CardShape)
-            .padding(16.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(Gold.copy(alpha = 0.35f), CircleShape)
-                    .border(2.dp, GoldDark.copy(alpha = 0.5f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(step, fontFamily = BangersFamily, fontSize = 16.sp, color = InkBrown)
-            }
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(title, fontFamily = BangersFamily, fontSize = 20.sp, color = InkBrown)
-                LedCaption(text = hint, fontSize = 17.sp)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        content()
+    var draft by remember(initialName) {
+        mutableStateOf(if (initialName == "Nouveau groupe") "" else initialName)
     }
-}
-
-@Composable
-private fun ChatGroupField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    onDone: () -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text(placeholder, color = InkBrown.copy(alpha = 0.4f), fontSize = 15.sp) },
-        singleLine = true,
-        shape = RoundedCornerShape(14.dp),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onDone() }),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = GoldDark,
-            unfocusedBorderColor = InkBrown.copy(alpha = 0.2f),
-            focusedContainerColor = Cream,
-            unfocusedContainerColor = Cream,
-            cursorColor = CircusRed,
-            focusedTextColor = InkBrown,
-            unfocusedTextColor = InkBrown,
-        ),
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        titleContentColor = DarkText,
+        textContentColor = DarkTextMuted,
+        title = {
+            Text("Nommer le groupe", fontWeight = FontWeight.SemiBold, color = DarkText)
+        },
+        text = {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it.take(64) },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Ex : Les copains", color = DarkTextMuted) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Gold,
+                    unfocusedBorderColor = DarkBorder,
+                    focusedContainerColor = DarkField,
+                    unfocusedContainerColor = DarkField,
+                    cursorColor = Gold,
+                    focusedTextColor = DarkText,
+                    unfocusedTextColor = DarkText,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (draft.isNotBlank()) onConfirm(draft.trim()) },
+                enabled = draft.isNotBlank(),
+            ) {
+                Text("Enregistrer", color = if (draft.isNotBlank()) DispoGreen else DarkTextMuted)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Plus tard", color = DarkTextMuted)
+            }
+        },
     )
 }
 
@@ -569,6 +534,7 @@ private fun GroupRow(
     myId: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onRename: () -> Unit,
     onCopyCode: () -> Unit,
     onAddFriend: (String) -> Unit,
     onLeave: () -> Unit,
@@ -577,8 +543,8 @@ private fun GroupRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, CardShape)
-            .border(2.5.dp, InkBrown.copy(alpha = 0.15f), CardShape)
+            .background(DarkSurface, CardShape)
+            .border(2.5.dp, DarkBorder.copy(alpha = 0.5f), CardShape)
             .clickable(onClick = onToggle)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -595,39 +561,47 @@ private fun GroupRow(
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(group.name, color = InkBrown, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                Text(
+                    group.name,
+                    color = DarkText,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp,
+                    modifier = Modifier.clickable {
+                        onRename()
+                    },
+                )
                 Text(
                     "${group.memberIds.size} membre${if (group.memberIds.size > 1) "s" else ""}",
                     fontFamily = LedFamily,
                     fontSize = 16.sp,
-                    color = InkBrown.copy(alpha = 0.5f),
+                    color = DarkTextMuted,
                 )
             }
             Text(
                 if (expanded) "▲" else "▼",
-                color = InkBrown.copy(alpha = 0.35f),
+                color = DarkTextMuted.copy(alpha = 0.6f),
                 fontSize = 12.sp,
             )
         }
         if (expanded) {
-            HorizontalDivider(color = InkBrown.copy(alpha = 0.08f))
-            LedCaption(text = "Code à partager", fontSize = 16.sp, color = InkBrown.copy(alpha = 0.5f))
+            HorizontalDivider(color = DarkBorder.copy(alpha = 0.4f))
+            LedCaption(text = "Code à partager", fontSize = 16.sp, color = DarkTextMuted)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Cream, RoundedCornerShape(12.dp))
-                    .border(2.dp, InkBrown.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                    .background(DarkField, RoundedCornerShape(12.dp))
+                    .border(2.dp, DarkBorder, RoundedCornerShape(12.dp))
                     .padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(group.inviteCode, fontFamily = LedFamily, color = InkBrown, fontSize = 22.sp)
+                Text(group.inviteCode, fontFamily = LedFamily, color = Gold, fontSize = 22.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = onCopyCode, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Filled.ContentCopy,
                             contentDescription = "Copier le code",
-                            tint = GoldDark,
+                            tint = Gold,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -641,17 +615,17 @@ private fun GroupRow(
                     }
                 }
             }
-            LedCaption(text = "Membres", fontSize = 16.sp, color = InkBrown.copy(alpha = 0.5f))
+            LedCaption(text = "Membres", fontSize = 16.sp, color = DarkTextMuted)
             group.memberIds.forEach { id ->
                 Text(
                     if (id == myId) "@$id · toi" else "@$id",
                     fontFamily = LedFamily,
                     fontSize = 17.sp,
-                    color = InkBrown.copy(alpha = 0.75f),
+                    color = DarkText.copy(alpha = 0.85f),
                 )
             }
             if (addable.isNotEmpty()) {
-                LedCaption(text = "Ajouter un ami", fontSize = 16.sp, color = InkBrown.copy(alpha = 0.5f))
+                LedCaption(text = "Ajouter un ami", fontSize = 16.sp, color = DarkTextMuted)
                 addable.forEach { friend ->
                     Row(
                         modifier = Modifier
@@ -666,7 +640,7 @@ private fun GroupRow(
                             "@${friend.name}",
                             fontFamily = LedFamily,
                             fontSize = 17.sp,
-                            color = InkBrown,
+                            color = DarkText,
                         )
                     }
                 }
@@ -691,8 +665,8 @@ private fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
-            .background(Color.White, RoundedCornerShape(28.dp))
-            .border(2.5.dp, InkBrown.copy(alpha = 0.2f), RoundedCornerShape(28.dp))
+            .background(DarkSurface, RoundedCornerShape(28.dp))
+            .border(2.5.dp, DarkBorder, RoundedCornerShape(28.dp))
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -700,7 +674,7 @@ private fun ChatInputBar(
             value = draft,
             onValueChange = { draft = it },
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Écris un message…", color = InkBrown.copy(alpha = 0.45f)) },
+            placeholder = { Text("Écris un message…", color = DarkTextMuted) },
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -710,9 +684,9 @@ private fun ChatInputBar(
                 unfocusedBorderColor = Color.Transparent,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                cursorColor = CircusRed,
-                focusedTextColor = InkBrown,
-                unfocusedTextColor = InkBrown,
+                cursorColor = Gold,
+                focusedTextColor = DarkText,
+                unfocusedTextColor = DarkText,
             ),
         )
         IconButton(
@@ -721,14 +695,14 @@ private fun ChatInputBar(
             modifier = Modifier
                 .size(44.dp)
                 .background(
-                    if (draft.isNotBlank()) DispoGreen else InkBrown.copy(alpha = 0.12f),
+                    if (draft.isNotBlank()) DispoGreen else DarkBorder.copy(alpha = 0.5f),
                     CircleShape,
                 ),
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.Send,
                 contentDescription = "Envoyer",
-                tint = if (draft.isNotBlank()) Cream else InkBrown.copy(alpha = 0.35f),
+                tint = if (draft.isNotBlank()) Cream else DarkTextMuted,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -737,7 +711,7 @@ private fun ChatInputBar(
             onClick = onOpenMap,
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = CircusPurple),
-            border = BorderStroke(2.5.dp, InkBrown),
+            border = BorderStroke(2.5.dp, DarkBorder),
             modifier = Modifier.size(44.dp),
             contentPadding = PaddingValues(0.dp),
         ) {
@@ -822,7 +796,7 @@ private fun Avatar(name: String) {
         modifier = Modifier
             .size(36.dp)
             .background(color, CircleShape)
-            .border(2.5.dp, InkBrown, CircleShape),
+            .border(2.5.dp, DarkBorder, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -840,8 +814,8 @@ private fun LockedChat(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(24.dp))
-                .border(3.dp, InkBrown.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
+                .background(DarkSurface, RoundedCornerShape(24.dp))
+                .border(3.dp, DarkBorder, RoundedCornerShape(24.dp))
                 .padding(28.dp),
         ) {
             Text("🎪", fontSize = 56.sp)
@@ -856,6 +830,7 @@ private fun LockedChat(modifier: Modifier = Modifier) {
             LedCaption(
                 text = "Le chat s'ouvre dès qu'une personne a tapé le bouton.",
                 fontSize = 20.sp,
+                color = DarkTextMuted,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -863,7 +838,7 @@ private fun LockedChat(modifier: Modifier = Modifier) {
             LedCaption(
                 text = "En attendant, crée ton crew dans l'onglet Groupes →",
                 fontSize = 18.sp,
-                color = GoldDark,
+                color = Gold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )

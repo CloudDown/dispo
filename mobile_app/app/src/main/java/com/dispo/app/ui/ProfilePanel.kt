@@ -21,22 +21,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -60,10 +62,13 @@ import com.dispo.app.ui.theme.BangersFamily
 import com.dispo.app.ui.theme.CircusPurple
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
+import com.dispo.app.ui.theme.DarkBorder
+import com.dispo.app.ui.theme.DarkField
+import com.dispo.app.ui.theme.DarkSurface
+import com.dispo.app.ui.theme.DarkText
+import com.dispo.app.ui.theme.DarkTextMuted
 import com.dispo.app.ui.theme.DispoGreen
 import com.dispo.app.ui.theme.Gold
-import com.dispo.app.ui.theme.GoldDark
-import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.ui.theme.LedFamily
 import java.io.File
 import kotlinx.coroutines.delay
@@ -90,9 +95,8 @@ fun ProfilePanel(
     modifier: Modifier = Modifier,
 ) {
     val profile = state.profile
-    var nameDraft by remember(profile.name) { mutableStateOf(profile.name) }
-    var friendDraft by remember { mutableStateOf("") }
-    var editingName by remember { mutableStateOf(false) }
+    var showAddFriend by remember { mutableStateOf(false) }
+    var showEditName by remember { mutableStateOf(false) }
 
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -151,66 +155,18 @@ fun ProfilePanel(
                             )
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "Mon profil",
-                        fontFamily = LedFamily,
-                        fontSize = 18.sp,
-                        color = GoldDark,
-                        letterSpacing = 1.sp,
+                        if (profile.name.isBlank()) "@toi" else "@${profile.name}",
+                        fontFamily = BangersFamily,
+                        fontSize = 28.sp,
+                        color = DarkText,
                     )
-                    Spacer(Modifier.height(4.dp))
-                    if (editingName) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            ProfileField(
-                                value = nameDraft,
-                                onValueChange = { nameDraft = it.removePrefix("@").take(30) },
-                                modifier = Modifier.weight(1f),
-                                onDone = {
-                                    onUpdateName(nameDraft)
-                                    editingName = false
-                                },
-                            )
-                            GreenIconButton(onClick = {
-                                onUpdateName(nameDraft)
-                                editingName = false
-                            }) {
-                                Icon(Icons.Filled.Check, contentDescription = "OK", tint = Cream)
-                            }
-                            IconButton(onClick = { editingName = false }) {
-                                Icon(
-                                    Icons.Filled.Close,
-                                    contentDescription = null,
-                                    tint = InkBrown.copy(alpha = 0.5f),
-                                )
-                            }
-                        }
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                if (profile.name.isBlank()) "@toi" else "@${profile.name}",
-                                fontFamily = BangersFamily,
-                                fontSize = 28.sp,
-                                color = InkBrown,
-                            )
-                            IconButton(onClick = { editingName = true }) {
-                                Icon(
-                                    Icons.Filled.Edit,
-                                    contentDescription = "Modifier",
-                                    tint = GoldDark.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     LedCaption(
                         text = "Appuie sur la photo pour la changer",
                         fontSize = 18.sp,
+                        color = DarkTextMuted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -219,45 +175,46 @@ fun ProfilePanel(
         }
 
         item {
-            ProfileCard(title = "Amis") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    ProfileField(
-                        value = friendDraft,
-                        onValueChange = { friendDraft = it.removePrefix("@").take(30) },
-                        modifier = Modifier.weight(1f),
-                        placeholder = "@pseudo",
-                        onDone = {
-                            onAddFriend(friendDraft)
-                            friendDraft = ""
-                        },
-                    )
-                    GreenIconButton(onClick = {
-                        onAddFriend(friendDraft)
-                        friendDraft = ""
-                    }) {
-                        Icon(Icons.Filled.PersonAdd, contentDescription = "Ajouter", tint = Cream)
-                    }
-                }
+            ProfileCard(title = "Paramètres") {
+                SettingsRow(
+                    icon = Icons.Filled.Edit,
+                    label = "Modifier le pseudo",
+                    onClick = { showEditName = true },
+                )
+                HorizontalDivider(
+                    color = DarkBorder.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                SettingsRow(
+                    icon = Icons.Filled.PersonAdd,
+                    label = "Ajouter un ami",
+                    onClick = { showAddFriend = true },
+                )
                 state.addFriendFeedback?.let { msg ->
-                    Spacer(Modifier.height(8.dp))
-                    Text(msg, color = DispoGreen, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        msg,
+                        color = DispoGreen,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
                 }
+            }
+        }
+
+        item {
+            ProfileCard(title = "Amis") {
                 if (state.friends.isEmpty()) {
-                    Spacer(Modifier.height(12.dp))
                     LedCaption(
-                        text = "Ajoute des potes avec leur @",
-                        fontSize = 20.sp,
+                        text = "Personne pour l’instant — ajoute un ami dans Paramètres.",
+                        fontSize = 18.sp,
+                        color = DarkTextMuted,
                     )
                 } else {
-                    Spacer(Modifier.height(8.dp))
                     state.friends.forEachIndexed { index, friend ->
                         if (index > 0) {
                             HorizontalDivider(
-                                color = InkBrown.copy(alpha = 0.08f),
+                                color = DarkBorder.copy(alpha = 0.4f),
                                 modifier = Modifier.padding(vertical = 4.dp),
                             )
                         }
@@ -267,6 +224,134 @@ fun ProfilePanel(
             }
         }
     }
+
+    if (showAddFriend) {
+        ProfileNameDialog(
+            title = "Ajouter un ami",
+            placeholder = "pseudo Instagram",
+            confirmLabel = "Ajouter",
+            onDismiss = { showAddFriend = false },
+            onConfirm = { name ->
+                onAddFriend(name)
+                showAddFriend = false
+            },
+        )
+    }
+
+    if (showEditName) {
+        ProfileNameDialog(
+            title = "Modifier le pseudo",
+            placeholder = "ton @",
+            initialValue = profile.name,
+            confirmLabel = "Enregistrer",
+            onDismiss = { showEditName = false },
+            onConfirm = { name ->
+                onUpdateName(name)
+                showEditName = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(Gold.copy(alpha = 0.18f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = DarkText,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = DarkTextMuted,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+@Composable
+private fun ProfileNameDialog(
+    title: String,
+    placeholder: String,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    initialValue: String = "",
+) {
+    var draft by remember(initialValue) {
+        mutableStateOf(initialValue.removePrefix("@"))
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        titleContentColor = DarkText,
+        textContentColor = DarkTextMuted,
+        title = {
+            Text(title, fontWeight = FontWeight.SemiBold, color = DarkText)
+        },
+        text = {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it.removePrefix("@").take(30) },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text(placeholder, color = DarkTextMuted) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = { if (draft.isNotBlank()) onConfirm(draft.trim()) },
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Gold,
+                    unfocusedBorderColor = DarkBorder,
+                    focusedContainerColor = DarkField,
+                    unfocusedContainerColor = DarkField,
+                    cursorColor = Gold,
+                    focusedTextColor = DarkText,
+                    unfocusedTextColor = DarkText,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (draft.isNotBlank()) onConfirm(draft.trim()) },
+                enabled = draft.isNotBlank(),
+            ) {
+                Text(
+                    confirmLabel,
+                    color = if (draft.isNotBlank()) DispoGreen else DarkTextMuted,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = DarkTextMuted)
+            }
+        },
+    )
 }
 
 @Composable
@@ -277,8 +362,8 @@ private fun ProfileCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, CardShape)
-            .border(2.5.dp, InkBrown.copy(alpha = 0.15f), CardShape)
+            .background(DarkSurface, CardShape)
+            .border(2.5.dp, DarkBorder.copy(alpha = 0.5f), CardShape)
             .padding(16.dp),
     ) {
         if (title != null) {
@@ -286,9 +371,9 @@ private fun ProfileCard(
                 title,
                 fontFamily = BangersFamily,
                 fontSize = 22.sp,
-                color = GoldDark,
+                color = Gold,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
         content()
     }
@@ -308,7 +393,7 @@ private fun FriendRow(friend: Friend, onRemove: () -> Unit) {
                 .background(AvatarPalette[friend.avatarColor % AvatarPalette.size], CircleShape)
                 .border(
                     2.5.dp,
-                    if (friend.dispo) DispoGreen else InkBrown.copy(alpha = 0.2f),
+                    if (friend.dispo) DispoGreen else DarkBorder,
                     CircleShape,
                 ),
             contentAlignment = Alignment.Center,
@@ -320,62 +405,18 @@ private fun FriendRow(friend: Friend, onRemove: () -> Unit) {
                 color = Cream,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("@${friend.name}", color = InkBrown, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("@${friend.name}", color = DarkText, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             Text(
                 if (friend.dispo) "Dispo ce soir" else "Pas dispo",
                 fontFamily = LedFamily,
                 fontSize = 16.sp,
-                color = if (friend.dispo) DispoGreen else InkBrown.copy(alpha = 0.4f),
+                color = if (friend.dispo) DispoGreen else DarkTextMuted,
             )
         }
         IconButton(onClick = onRemove) {
-            Icon(Icons.Filled.Close, contentDescription = "Retirer", tint = CircusRed.copy(alpha = 0.5f))
+            Icon(Icons.Filled.Close, contentDescription = "Retirer", tint = CircusRed.copy(alpha = 0.7f))
         }
     }
-}
-
-@Composable
-private fun GreenIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(48.dp)
-            .background(DispoGreen, CircleShape)
-            .border(2.dp, InkBrown.copy(alpha = 0.2f), CircleShape),
-    ) { content() }
-}
-
-@Composable
-private fun ProfileField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String = "",
-    onDone: () -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier,
-        placeholder = {
-            if (placeholder.isNotEmpty()) {
-                Text(placeholder, color = InkBrown.copy(alpha = 0.35f))
-            }
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(14.dp),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onDone() }),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = GoldDark,
-            unfocusedBorderColor = InkBrown.copy(alpha = 0.18f),
-            focusedContainerColor = Cream,
-            unfocusedContainerColor = Cream,
-            cursorColor = CircusRed,
-            focusedTextColor = InkBrown,
-            unfocusedTextColor = InkBrown,
-        ),
-    )
 }

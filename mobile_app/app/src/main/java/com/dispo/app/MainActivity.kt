@@ -64,6 +64,11 @@ import com.dispo.app.ui.ProfilePanel
 import com.dispo.app.ui.STAR_BURST_MS
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
+import com.dispo.app.ui.theme.DarkBg
+import com.dispo.app.ui.theme.DarkBorder
+import com.dispo.app.ui.theme.DarkSurface
+import com.dispo.app.ui.theme.DarkSurfaceRaised
+import com.dispo.app.ui.theme.DarkTextMuted
 import com.dispo.app.ui.theme.DispoTheme
 import com.dispo.app.ui.theme.InkBrown
 import com.dispo.app.widget.DispoWidget
@@ -121,8 +126,13 @@ fun DispoApp() {
         previousUnlocked.value = state.chatUnlocked
     }
 
-    // Fond crème partout ; le rouge reste en accent (onglets, chat, anneaux)
-    val backgroundColor = Cream
+    // Accueil crème, chat & profil sombres
+    val backgroundColor by animateColorAsState(
+        targetValue = if (pagerState.currentPage == 0) Cream else DarkBg,
+        animationSpec = tween(400),
+        label = "pageBackground",
+    )
+    val isDarkPage = pagerState.currentPage > 0
 
     Box(
         modifier = Modifier
@@ -177,8 +187,14 @@ fun DispoApp() {
                         state = state,
                         onSend = { text -> repository.sendMessage(text) },
                         onOpenMap = { mapOpen = true },
-                        onCreateGroup = { name ->
-                            scope.launch { repository.createGroup(name) }
+                        onCreateGroup = { onCreated ->
+                            scope.launch {
+                                val id = repository.createGroup()
+                                onCreated(id)
+                            }
+                        },
+                        onRenameGroup = { groupId, name ->
+                            scope.launch { repository.renameGroup(groupId, name) }
                         },
                         onJoinGroup = { code ->
                             scope.launch { repository.joinGroupByCode(code) }
@@ -212,20 +228,26 @@ fun DispoApp() {
 
             // Masquée quand le clavier est ouvert pour ne pas pousser la barre d'écriture
             if (!keyboardVisible) {
+                val tabBarBg = if (isDarkPage) DarkSurface else Cream
+                val tabBarBorder = if (isDarkPage) DarkBorder else InkBrown
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .background(Cream, RoundedCornerShape(22.dp))
-                        .border(3.dp, InkBrown, RoundedCornerShape(22.dp))
+                        .background(tabBarBg, RoundedCornerShape(22.dp))
+                        .border(3.dp, tabBarBorder, RoundedCornerShape(22.dp))
                         .padding(6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     tabs.forEachIndexed { index, title ->
                         val selected = pagerState.currentPage == index
                         val tabColor by animateColorAsState(
-                            targetValue = if (selected) CircusRed else Cream,
+                            targetValue = when {
+                                selected -> CircusRed
+                                isDarkPage -> DarkSurfaceRaised
+                                else -> Cream
+                            },
                             animationSpec = tween(250),
                             label = "tabColor",
                         )
@@ -235,7 +257,11 @@ fun DispoApp() {
                                 .background(tabColor, RoundedCornerShape(16.dp))
                                 .then(
                                     if (selected) {
-                                        Modifier.border(2.5.dp, InkBrown, RoundedCornerShape(16.dp))
+                                        Modifier.border(
+                                            2.5.dp,
+                                            if (isDarkPage) DarkBorder else InkBrown,
+                                            RoundedCornerShape(16.dp),
+                                        )
                                     } else {
                                         Modifier
                                     },
@@ -257,7 +283,11 @@ fun DispoApp() {
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 14.sp),
-                                color = if (selected) Cream else InkBrown,
+                                color = when {
+                                    selected -> Cream
+                                    isDarkPage -> DarkTextMuted
+                                    else -> InkBrown
+                                },
                             )
                         }
                     }

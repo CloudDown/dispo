@@ -264,21 +264,33 @@ class DispoRepository private constructor(private val appContext: Context) {
         feedbackFlow.value = "Retiré des amis"
     }
 
-    suspend fun createGroup(rawName: String): Boolean {
+    /** Crée un groupe avec un nom par défaut. Retourne l'id pour permettre le renommage. */
+    suspend fun createGroup(): String {
+        val me = normalizeHandle(profileFlow.first().name).ifBlank { "toi" }
+        val group = CrewGroup(
+            id = UUID.randomUUID().toString(),
+            name = "Nouveau groupe",
+            inviteCode = generateInviteCode(),
+            memberIds = listOf(me),
+        )
+        persistGroups(groupsFlow.value + group)
+        feedbackFlow.value = "Groupe créé"
+        return group.id
+    }
+
+    suspend fun renameGroup(groupId: String, rawName: String): Boolean {
         val name = rawName.trim().take(64)
         if (name.isBlank()) {
             feedbackFlow.value = "Nom du groupe requis"
             return false
         }
-        val me = normalizeHandle(profileFlow.first().name).ifBlank { "toi" }
-        val group = CrewGroup(
-            id = UUID.randomUUID().toString(),
-            name = name,
-            inviteCode = generateInviteCode(),
-            memberIds = listOf(me),
+        if (groupsFlow.value.none { it.id == groupId }) return false
+        persistGroups(
+            groupsFlow.value.map {
+                if (it.id == groupId) it.copy(name = name) else it
+            },
         )
-        persistGroups(groupsFlow.value + group)
-        feedbackFlow.value = "Groupe « ${group.name} » créé"
+        feedbackFlow.value = "Groupe renommé « $name »"
         return true
     }
 

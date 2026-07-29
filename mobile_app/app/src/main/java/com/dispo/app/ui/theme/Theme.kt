@@ -27,6 +27,15 @@ val LedOff = Color(0xFF5A4632)
 val Gold = Color(0xFFE8C547)
 val GoldDark = Color(0xFFC9A020)
 
+// Palette sombre (chat & profil)
+val DarkBg = Color(0xFF14100D)
+val DarkSurface = Color(0xFF231C16)
+val DarkSurfaceRaised = Color(0xFF2E2520)
+val DarkField = Color(0xFF1A1511)
+val DarkBorder = Color(0xFF4A3D32)
+val DarkText = Cream
+val DarkTextMuted = Color(0xFFA89888)
+
 /** Police display cartoon (titres, gros textes). */
 val BangersFamily = FontFamily(Font(R.font.bangers))
 
