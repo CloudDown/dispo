@@ -1,11 +1,7 @@
 package com.dispo.app.ui
 
-import android.content.Context
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -25,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,29 +32,24 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
-import com.dispo.app.R
 import com.dispo.app.core.ChatMessage
 import com.dispo.app.ui.theme.Cream
-import com.dispo.app.ui.theme.DarkBorder
-import com.dispo.app.ui.theme.DarkSurface
-import com.dispo.app.ui.theme.DarkText
-import com.dispo.app.ui.theme.DarkTextMuted
 import com.dispo.app.ui.theme.DispoGreen
-import com.dispo.app.ui.theme.Gold
-import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.CustomZoomButtonsController
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
+
+private val Montreal = LatLng(45.5019, -73.5674)
 
 /**
- * Écran carte plein écran. Un tap place un pin provisoire ;
- * « Envoyer » confirme et envoie le lieu dans le chat.
+ * Écran carte Google Maps plein écran.
+ * Un tap place un pin provisoire ; « Envoyer » envoie le lieu (lien Maps) dans le chat.
  */
 @Composable
 fun MapScreen(
@@ -71,36 +61,61 @@ fun MapScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { keyboard?.hide() }
 
-    var draft by remember { mutableStateOf<GeoPoint?>(null) }
+    var draft by remember { mutableStateOf<LatLng?>(null) }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(Montreal, 14f)
+    }
+
+    LaunchedEffect(draft) {
+        val point = draft ?: return@LaunchedEffect
+        cameraPositionState.animate(CameraUpdateFactory.newLatLng(point))
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
-        CircusMap(
-            pins = pins,
-            draft = draft,
-            onMapTap = { lat, lon -> draft = GeoPoint(lat, lon) },
+        GoogleMap(
             modifier = Modifier.fillMaxSize(),
-        )
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(isMyLocationEnabled = false),
+            uiSettings = MapUiSettings(
+                zoomControlsEnabled = false,
+                mapToolbarEnabled = false,
+                compassEnabled = false,
+            ),
+            onMapClick = { draft = it },
+        ) {
+            pins.filter { it.hasLocation }.forEach { msg ->
+                Marker(
+                    state = MarkerState(LatLng(msg.lat!!, msg.lon!!)),
+                    title = msg.authorName,
+                )
+            }
+            draft?.let { point ->
+                Marker(
+                    state = MarkerState(point),
+                    title = "Nouveau lieu",
+                )
+            }
+        }
 
-        // Voile doux en haut / bas pour lisibilité des contrôles
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp)
+                .height(72.dp)
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
+                        listOf(Color.Black.copy(alpha = 0.18f), Color.Transparent),
                     ),
                 ),
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
+                .height(100.dp)
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.22f)),
                     ),
                 ),
         )
@@ -114,11 +129,10 @@ fun MapScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
-                    .size(44.dp)
-                    .shadow(8.dp, CircleShape)
+                    .size(40.dp)
+                    .shadow(4.dp, CircleShape)
                     .clip(CircleShape)
-                    .background(DarkSurface.copy(alpha = 0.92f))
-                    .border(1.5.dp, DarkBorder.copy(alpha = 0.7f), CircleShape)
+                    .background(Color.White.copy(alpha = 0.92f))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -126,7 +140,7 @@ fun MapScreen(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("✕", fontSize = 18.sp, color = DarkText, fontWeight = FontWeight.Medium)
+                Text("✕", fontSize = 16.sp, color = Color(0xFF333333), fontWeight = FontWeight.Medium)
             }
 
             Text(
@@ -134,11 +148,11 @@ fun MapScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 18.dp)
+                    .shadow(2.dp, RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
-                    .background(DarkSurface.copy(alpha = 0.88f))
-                    .border(1.dp, DarkBorder.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                    .background(Color.White.copy(alpha = 0.92f))
                     .padding(horizontal = 14.dp, vertical = 8.dp),
-                color = if (draft == null) DarkTextMuted else Gold,
+                color = if (draft == null) Color(0xFF666666) else DispoGreen,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
             )
@@ -158,8 +172,8 @@ fun MapScreen(
                         .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
-                    border = BorderStroke(1.5.dp, Cream.copy(alpha = 0.2f)),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                    border = BorderStroke(1.dp, Cream.copy(alpha = 0.15f)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                 ) {
                     Text(
                         "Envoyer ce lieu",
@@ -170,93 +184,5 @@ fun MapScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun CircusMap(
-    pins: List<ChatMessage>,
-    modifier: Modifier = Modifier,
-    draft: GeoPoint? = null,
-    onMapTap: ((lat: Double, lon: Double) -> Unit)? = null,
-) {
-    val currentOnTap by rememberUpdatedState(onMapTap)
-    // Évite de recentrer la carte à chaque recomposition tant que le pin n’a pas bougé
-    val lastAnimatedDraft = remember { mutableStateOf<GeoPoint?>(null) }
-
-    AndroidView(
-        modifier = modifier,
-        factory = { context ->
-            createMapView(context).also { mapView ->
-                val receiver = object : MapEventsReceiver {
-                    override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                        currentOnTap?.invoke(p.latitude, p.longitude)
-                        return currentOnTap != null
-                    }
-
-                    override fun longPressHelper(p: GeoPoint): Boolean = false
-                }
-                mapView.overlays.add(0, MapEventsOverlay(receiver))
-            }
-        },
-        update = { mapView ->
-            val pinDrawable = ContextCompat.getDrawable(mapView.context, R.drawable.pin_circus)
-            mapView.overlays.removeAll { it is Marker }
-
-            pins.filter { it.hasLocation }.forEach { msg ->
-                val marker = Marker(mapView).apply {
-                    position = GeoPoint(msg.lat!!, msg.lon!!)
-                    title = msg.authorName
-                    icon = pinDrawable
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                }
-                mapView.overlays.add(marker)
-            }
-
-            draft?.let { point ->
-                val draftMarker = Marker(mapView).apply {
-                    position = point
-                    title = "Nouveau lieu"
-                    icon = pinDrawable
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                }
-                mapView.overlays.add(draftMarker)
-                val prev = lastAnimatedDraft.value
-                val moved = prev == null ||
-                    prev.latitude != point.latitude ||
-                    prev.longitude != point.longitude
-                if (moved) {
-                    mapView.controller.animateTo(point)
-                    lastAnimatedDraft.value = point
-                }
-            } ?: run {
-                lastAnimatedDraft.value = null
-            }
-
-            mapView.invalidate()
-        },
-    )
-}
-
-private fun createMapView(context: Context): MapView {
-    Configuration.getInstance().userAgentValue = context.packageName
-    return MapView(context).apply {
-        setTileSource(TileSourceFactory.MAPNIK)
-        setMultiTouchControls(true)
-        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-        controller.setZoom(14.0)
-        controller.setCenter(GeoPoint(45.5019, -73.5674))
-
-        val desaturate = ColorMatrix().apply { setSaturation(0.55f) }
-        val warm = ColorMatrix(
-            floatArrayOf(
-                1.08f, 0f, 0f, 0f, 14f,
-                0f, 1.0f, 0f, 0f, 6f,
-                0f, 0f, 0.86f, 0f, -8f,
-                0f, 0f, 0f, 1f, 0f,
-            ),
-        )
-        warm.preConcat(desaturate)
-        overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(warm))
     }
 }

@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dispo.app.core.DispoRepository
+import com.dispo.app.core.GoogleMapsUrls
 import com.dispo.app.ui.ChatPanel
 import com.dispo.app.ui.DispoButton
 import com.dispo.app.ui.DISPO_BUTTON_FRACTION
@@ -328,7 +329,7 @@ fun DispoApp() {
             MapScreen(
                 pins = state.messages.filter { it.hasLocation },
                 onPickLocation = { lat, lon ->
-                    repository.sendMessage("", lat = lat, lon = lon)
+                    repository.sendMessage(GoogleMapsUrls.placeLink(lat, lon), lat = lat, lon = lon)
                 },
                 onClose = { mapOpen = false },
             )

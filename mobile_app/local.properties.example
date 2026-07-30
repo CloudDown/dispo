@@ -1,6 +1,11 @@
 ## Chemin SDK Android
 sdk.dir=/path/to/Android/Sdk
 
+## Clé Google Maps (Maps SDK + Maps Static API)
+## Console : https://console.cloud.google.com/google/maps-apis
+## Activer : Maps SDK for Android + Maps Static API
+MAPS_API_KEY=
+
 ## URL de l'API Dispo (trailing slash recommandé pour Retrofit)
 ## Émulateur Android : http://10.0.2.2:8000/
 ## Appareil USB + adb reverse : http://127.0.0.1:8000/

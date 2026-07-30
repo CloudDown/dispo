@@ -3,8 +3,9 @@ package com.dispo.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,22 +56,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.dispo.app.R
 import com.dispo.app.core.ChatMessage
 import com.dispo.app.core.CrewGroup
 import com.dispo.app.core.DispoUiState
 import com.dispo.app.core.Friend
+import com.dispo.app.core.GoogleMapsUrls
 import com.dispo.app.ui.theme.CircusPurple
 import com.dispo.app.ui.theme.CircusRed
 import com.dispo.app.ui.theme.Cream
@@ -351,7 +353,6 @@ private fun ChatMessagesSection(
                         MessageBubble(
                             msg = msg,
                             myId = state.profile.id,
-                            onOpenMap = onOpenMap,
                         )
                     }
                 }
@@ -755,7 +756,7 @@ private fun ChatInputBar(
 }
 
 @Composable
-private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit) {
+private fun MessageBubble(msg: ChatMessage, myId: String) {
     val isMe = msg.authorId == myId
     val shape = if (isMe) BubbleMe else BubbleOther
     val timeText = remember(msg.timestamp) { timeFormat.format(Date(msg.timestamp)) }
@@ -780,7 +781,6 @@ private fun MessageBubble(msg: ChatMessage, myId: String, onOpenMap: () -> Unit)
                     isMe = isMe,
                     shape = shape,
                     timeText = timeText,
-                    onOpenMap = onOpenMap,
                 )
             } else {
                 Column(
@@ -832,11 +832,27 @@ private fun LocationBubble(
     isMe: Boolean,
     shape: RoundedCornerShape,
     timeText: String,
-    onOpenMap: () -> Unit,
 ) {
     val lat = msg.lat ?: return
     val lon = msg.lon ?: return
+    val context = LocalContext.current
+    val mapsApiKey = stringResource(R.string.google_maps_key)
+    val mapsLink = remember(msg.text, lat, lon) {
+        msg.text.takeIf { GoogleMapsUrls.isMapsLink(it) }
+            ?: GoogleMapsUrls.placeLink(lat, lon)
+    }
+    val previewUrl = remember(lat, lon, mapsApiKey) {
+        GoogleMapsUrls.staticImageUrl(lat, lon, mapsApiKey)
+    }
     val coords = remember(lat, lon) { formatCoords(lat, lon) }
+
+    fun openGoogleMaps() {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(mapsLink)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -844,50 +860,44 @@ private fun LocationBubble(
             .clip(shape)
             .background(LocationCardBg)
             .border(1.5.dp, Gold.copy(alpha = 0.35f), shape)
-            .clickable(onClick = onOpenMap),
+            .clickable(onClick = ::openGoogleMaps),
     ) {
-        // Aperçu carte illustré
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(118.dp),
+                .height(118.dp)
+                .background(Color(0xFFE8E8E8)),
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawLocationMapPreview()
-            }
-            // Voile bas pour le titre
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
-                        ),
-                    ),
-            )
-            // Pin central
-            Box(
-                modifier = Modifier.align(Alignment.Center),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(DispoGreen.copy(alpha = 0.25f), CircleShape),
+            if (previewUrl != null) {
+                AsyncImage(
+                    model = previewUrl,
+                    contentDescription = "Aperçu Google Maps",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
                 )
-                Text("📍", fontSize = 26.sp)
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Aperçu Google Maps\n(ajoute MAPS_API_KEY)",
+                        color = Color(0xFF666666),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp,
+                    )
+                }
             }
             Text(
-                "Lieu partagé",
+                "Google Maps",
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(10.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(DarkSurface.copy(alpha = 0.75f))
+                    .background(Color.White.copy(alpha = 0.92f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
-                color = Gold,
+                color = Color(0xFF333333),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -905,21 +915,19 @@ private fun LocationBubble(
                     color = Gold,
                 )
             }
-            if (msg.text.isNotBlank()) {
-                Text(
-                    msg.text,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = DarkText,
-                    lineHeight = 20.sp,
-                )
-            }
             Text(
                 coords,
                 fontFamily = LedFamily,
                 fontSize = 15.sp,
                 color = DarkTextMuted,
                 letterSpacing = 0.5.sp,
+            )
+            Text(
+                mapsLink,
+                fontSize = 12.sp,
+                color = DispoGreen.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
             Row(
@@ -933,7 +941,7 @@ private fun LocationBubble(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Voir sur la carte",
+                    "Ouvrir dans Google Maps",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = DispoGreen,
@@ -960,72 +968,6 @@ private fun formatCoords(lat: Double, lon: Double): String {
         latHem,
         abs(lon),
         lonHem,
-    )
-}
-
-private fun DrawScope.drawLocationMapPreview() {
-    val canvas = this.size
-    // Fond terrain
-    drawRect(
-        brush = Brush.verticalGradient(
-            listOf(
-                Color(0xFF2C4A38),
-                Color(0xFF1E3328),
-                Color(0xFF16241E),
-            ),
-        ),
-    )
-    // Routes horizontales
-    val road = Color(0xFF4A6354).copy(alpha = 0.55f)
-    val roadMain = Color(0xFF6B8574).copy(alpha = 0.45f)
-    for (i in 1..5) {
-        val y = canvas.height * (i / 6f)
-        drawLine(
-            color = if (i == 3) roadMain else road,
-            start = Offset(0f, y),
-            end = Offset(canvas.width, y),
-            strokeWidth = if (i == 3) 3.5f else 1.8f,
-        )
-    }
-    // Routes verticales
-    for (i in 1..4) {
-        val x = canvas.width * (i / 5f)
-        drawLine(
-            color = if (i == 2) roadMain else road,
-            start = Offset(x, 0f),
-            end = Offset(x, canvas.height),
-            strokeWidth = if (i == 2) 3.5f else 1.8f,
-        )
-    }
-    // Blocs « bâtiments »
-    val block = Color(0xFF24382E).copy(alpha = 0.7f)
-    listOf(
-        Offset(canvas.width * 0.08f, canvas.height * 0.12f) to Size(canvas.width * 0.22f, canvas.height * 0.18f),
-        Offset(canvas.width * 0.58f, canvas.height * 0.08f) to Size(canvas.width * 0.28f, canvas.height * 0.22f),
-        Offset(canvas.width * 0.12f, canvas.height * 0.58f) to Size(canvas.width * 0.26f, canvas.height * 0.2f),
-        Offset(canvas.width * 0.62f, canvas.height * 0.55f) to Size(canvas.width * 0.24f, canvas.height * 0.24f),
-    ).forEach { (origin, blockSize) ->
-        drawRoundRect(
-            color = block,
-            topLeft = origin,
-            size = blockSize,
-            cornerRadius = CornerRadius(6f, 6f),
-        )
-    }
-    // Halo autour du centre
-    val center = Offset(canvas.width / 2f, canvas.height / 2f)
-    val halo = canvas.minDimension * 0.35f
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                DispoGreen.copy(alpha = 0.35f),
-                Color.Transparent,
-            ),
-            center = center,
-            radius = halo,
-        ),
-        radius = halo,
-        center = center,
     )
 }
 
