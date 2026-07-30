@@ -57,9 +57,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 **État actuel** : l'UI et la logique locale (DataStore) fonctionnent offline.
 Le serveur est prêt ; le branchement Retrofit (comme Vif) est la prochaine étape.
 
-**Google Maps** : ajoute `MAPS_API_KEY=…` dans `mobile_app/local.properties`
-(voir `local.properties.example`). Active *Maps SDK for Android* + *Maps Static API*
-dans la Google Cloud Console. Sans clé, le picker / l’aperçu lieu ne s’affichent pas.
+Lieux : carte / vignette via tuiles libres (aucune clé API) ; le message contient un
+lien `google.com/maps` ouvrable dans l’app Maps.
 
 ## Concept produit
 
@@ -72,5 +71,5 @@ dans la Google Cloud Console. Sans clé, le picker / l’aperçu lieu ne s’aff
 
 | Couche | Techno |
 |--------|--------|
-| Mobile | Kotlin, Jetpack Compose, DataStore, Glance, Google Maps |
+| Mobile | Kotlin, Jetpack Compose, DataStore, Glance, osmdroid |
 | API | FastAPI, SQLModel, JWT, SQLite (Postgres possible via `DISPO_DATABASE_URL`) |

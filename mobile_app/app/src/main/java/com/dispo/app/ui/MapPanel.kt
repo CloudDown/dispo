@@ -1,5 +1,10 @@
 package com.dispo.app.ui
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,24 +38,50 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
+import com.dispo.app.R
 import com.dispo.app.core.ChatMessage
 import com.dispo.app.ui.theme.Cream
 import com.dispo.app.ui.theme.DispoGreen
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
+import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
+import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.MapTileIndex
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
 
-private val Montreal = LatLng(45.5019, -73.5674)
+/** Fond clair type Apple Maps (CartoDB Positron), sans clé API. */
+private val CartoPositron: OnlineTileSourceBase = object : XYTileSource(
+    "CartoPositron",
+    0,
+    20,
+    256,
+    ".png",
+    arrayOf(
+        "https://a.basemaps.cartocdn.com/",
+        "https://b.basemaps.cartocdn.com/",
+        "https://c.basemaps.cartocdn.com/",
+        "https://d.basemaps.cartocdn.com/",
+    ),
+    "© OpenStreetMap © CARTO",
+) {
+    override fun getTileURLString(pMapTileIndex: Long): String {
+        val zoom = MapTileIndex.getZoom(pMapTileIndex)
+        val x = MapTileIndex.getX(pMapTileIndex)
+        val y = MapTileIndex.getY(pMapTileIndex)
+        return "${baseUrl}light_all/$zoom/$x/$y.png"
+    }
+}
 
 /**
- * Écran carte Google Maps plein écran.
- * Un tap place un pin provisoire ; « Envoyer » envoie le lieu (lien Maps) dans le chat.
+ * Écran carte plein écran. Un tap place un pin provisoire ;
+ * « Envoyer » confirme et envoie le lieu (lien Google Maps) dans le chat.
  */
 @Composable
 fun MapScreen(
@@ -61,41 +93,15 @@ fun MapScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { keyboard?.hide() }
 
-    var draft by remember { mutableStateOf<LatLng?>(null) }
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(Montreal, 14f)
-    }
-
-    LaunchedEffect(draft) {
-        val point = draft ?: return@LaunchedEffect
-        cameraPositionState.animate(CameraUpdateFactory.newLatLng(point))
-    }
+    var draft by remember { mutableStateOf<GeoPoint?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        GoogleMap(
+        DispoMap(
+            pins = pins,
+            draft = draft,
+            onMapTap = { lat, lon -> draft = GeoPoint(lat, lon) },
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = false),
-            uiSettings = MapUiSettings(
-                zoomControlsEnabled = false,
-                mapToolbarEnabled = false,
-                compassEnabled = false,
-            ),
-            onMapClick = { draft = it },
-        ) {
-            pins.filter { it.hasLocation }.forEach { msg ->
-                Marker(
-                    state = MarkerState(LatLng(msg.lat!!, msg.lon!!)),
-                    title = msg.authorName,
-                )
-            }
-            draft?.let { point ->
-                Marker(
-                    state = MarkerState(point),
-                    title = "Nouveau lieu",
-                )
-            }
-        }
+        )
 
         Box(
             modifier = Modifier
@@ -184,5 +190,95 @@ fun MapScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun DispoMap(
+    pins: List<ChatMessage>,
+    modifier: Modifier = Modifier,
+    draft: GeoPoint? = null,
+    onMapTap: ((lat: Double, lon: Double) -> Unit)? = null,
+) {
+    val currentOnTap by rememberUpdatedState(onMapTap)
+    val lastAnimatedDraft = remember { mutableStateOf<GeoPoint?>(null) }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            createMapView(context).also { mapView ->
+                val receiver = object : MapEventsReceiver {
+                    override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                        currentOnTap?.invoke(p.latitude, p.longitude)
+                        return currentOnTap != null
+                    }
+
+                    override fun longPressHelper(p: GeoPoint): Boolean = false
+                }
+                mapView.overlays.add(0, MapEventsOverlay(receiver))
+            }
+        },
+        update = { mapView ->
+            // osmdroid ne dessine pas bien les VectorDrawable → bitmap rouge
+            val pinIcon = redPinDrawable(mapView.context)
+            mapView.overlays.removeAll { it is Marker }
+
+            pins.filter { it.hasLocation }.forEach { msg ->
+                val marker = Marker(mapView).apply {
+                    position = GeoPoint(msg.lat!!, msg.lon!!)
+                    title = msg.authorName
+                    icon = pinIcon.constantState?.newDrawable()?.mutate() ?: pinIcon
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
+                mapView.overlays.add(marker)
+            }
+
+            draft?.let { point ->
+                val draftMarker = Marker(mapView).apply {
+                    position = point
+                    title = "Nouveau lieu"
+                    icon = pinIcon.constantState?.newDrawable()?.mutate() ?: pinIcon
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
+                mapView.overlays.add(draftMarker)
+                val prev = lastAnimatedDraft.value
+                val moved = prev == null ||
+                    prev.latitude != point.latitude ||
+                    prev.longitude != point.longitude
+                if (moved) {
+                    mapView.controller.animateTo(point)
+                    lastAnimatedDraft.value = point
+                }
+            } ?: run {
+                lastAnimatedDraft.value = null
+            }
+
+            mapView.invalidate()
+        },
+    )
+}
+
+/** Rasterise le pin vectoriel : osmdroid ignore sinon le VectorDrawable et garde son pin vert. */
+private fun redPinDrawable(context: Context): Drawable {
+    val vector = ContextCompat.getDrawable(context, R.drawable.pin_map)
+        ?: return ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)!!
+    val density = context.resources.displayMetrics.density
+    val width = (36f * density).toInt().coerceAtLeast(1)
+    val height = (48f * density).toInt().coerceAtLeast(1)
+    val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    vector.setBounds(0, 0, width, height)
+    vector.draw(canvas)
+    return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun createMapView(context: Context): MapView {
+    Configuration.getInstance().userAgentValue = context.packageName
+    return MapView(context).apply {
+        setTileSource(CartoPositron)
+        setMultiTouchControls(true)
+        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+        controller.setZoom(14.0)
+        controller.setCenter(GeoPoint(45.5019, -73.5674))
     }
 }

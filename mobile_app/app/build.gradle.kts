@@ -1,15 +1,7 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
 }
-
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
-}
-val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY", "")
 
 android {
     namespace = "com.dispo.app"
@@ -26,9 +18,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
-
-        // Clé Maps : Manifest + R.string (évite BuildConfig / jlink JDK 26)
-        resValue("string", "google_maps_key", mapsApiKey)
     }
 
     buildTypes {
@@ -44,7 +33,6 @@ android {
 
     buildFeatures {
         compose = true
-        resValues = true
     }
 }
 
@@ -66,7 +54,6 @@ dependencies {
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
 
-    implementation(libs.play.services.maps)
-    implementation(libs.maps.compose)
+    implementation(libs.osmdroid.android)
     implementation(libs.coil.compose)
 }

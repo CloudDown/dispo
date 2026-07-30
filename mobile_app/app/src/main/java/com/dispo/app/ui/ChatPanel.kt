@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -59,7 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -836,14 +837,11 @@ private fun LocationBubble(
     val lat = msg.lat ?: return
     val lon = msg.lon ?: return
     val context = LocalContext.current
-    val mapsApiKey = stringResource(R.string.google_maps_key)
     val mapsLink = remember(msg.text, lat, lon) {
         msg.text.takeIf { GoogleMapsUrls.isMapsLink(it) }
             ?: GoogleMapsUrls.placeLink(lat, lon)
     }
-    val previewUrl = remember(lat, lon, mapsApiKey) {
-        GoogleMapsUrls.staticImageUrl(lat, lon, mapsApiKey)
-    }
+    val previewUrl = remember(lat, lon) { GoogleMapsUrls.previewImageUrl(lat, lon) }
     val coords = remember(lat, lon) { formatCoords(lat, lon) }
 
     fun openGoogleMaps() {
@@ -868,29 +866,22 @@ private fun LocationBubble(
                 .height(118.dp)
                 .background(Color(0xFFE8E8E8)),
         ) {
-            if (previewUrl != null) {
-                AsyncImage(
-                    model = previewUrl,
-                    contentDescription = "Aperçu Google Maps",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "Aperçu Google Maps\n(ajoute MAPS_API_KEY)",
-                        color = Color(0xFF666666),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 16.sp,
-                    )
-                }
-            }
+            AsyncImage(
+                model = previewUrl,
+                contentDescription = "Aperçu du lieu",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            Image(
+                painter = painterResource(R.drawable.pin_map),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(bottom = 18.dp)
+                    .size(width = 28.dp, height = 36.dp),
+            )
             Text(
-                "Google Maps",
+                "Lieu",
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(10.dp)
