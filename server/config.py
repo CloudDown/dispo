@@ -23,3 +23,9 @@ UPLOAD_DIR = Path(os.getenv("DISPO_UPLOAD_DIR", "./uploads"))
 DEMO_MODE = os.getenv("DISPO_DEMO_MODE", "1").strip().lower() in {
     "1", "true", "yes", "on",
 }
+
+if not DEMO_MODE and SECRET_KEY == _DEFAULT_SECRET_KEY:
+    raise RuntimeError(
+        "DISPO_SECRET_KEY doit être défini quand DISPO_DEMO_MODE=0 "
+        "(la clé de développement par défaut est interdite hors démo)."
+    )
