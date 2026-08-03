@@ -33,11 +33,11 @@ cd server && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 ### Comptes démo (si `DISPO_DEMO_MODE=1`)
 
-| ID     | Mot de passe | Nom |
-|--------|--------------|-----|
-| LEA001 | demo         | Léa |
-| MAX002 | demo         | Max |
-| SAM003 | demo         | Sam |
+| ID  | Mot de passe | Nom |
+|-----|--------------|-----|
+| lea | demo         | Léa |
+| max | demo         | Max |
+| sam | demo         | Sam |
 
 Groupe démo : code invite `CREWDEMO`.
 
@@ -47,12 +47,18 @@ Android Studio : ouvrir **`mobile_app/`** (pas la racine). Config Run : `app`.
 
 ```bash
 cd mobile_app
-./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./release-github.sh
 ```
 
-L'app tourne encore en mode **local / DataStore** pour l'instant.
-Prochaine étape : brancher Retrofit + TokenStore comme Vif (`mobile_app/.../data/`).
+Modes API (via `configure-device-api.sh`) : `pi` · `usb` · `lan` — clé `dispo.api.base.url` dans `local.properties`.
+
+L'app est branchée au serveur via Retrofit (`mobile_app/.../data/`) + écran login.
+
+## Raspberry Pi (h24)
+
+- Service : `dispo-api` port **8000**
+- Déployer : `python3 deploy/pi/deploy_paramiko.py`
+- Doc : [`deploy/pi/README.md`](deploy/pi/README.md)
 
 ## Conventions
 

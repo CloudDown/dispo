@@ -71,5 +71,5 @@ def get_current_user(
 
 
 def find_user_by_public_id(session: Session, public_id: str) -> Optional[User]:
-    pid = public_id.strip().upper()
+    pid = public_id.strip().lower()
     return session.exec(select(User).where(User.public_id == pid)).first()

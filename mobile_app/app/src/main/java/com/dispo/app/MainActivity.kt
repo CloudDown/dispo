@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +60,7 @@ import com.dispo.app.ui.ChatPanel
 import com.dispo.app.ui.DispoButton
 import com.dispo.app.ui.DISPO_BUTTON_FRACTION
 import com.dispo.app.ui.HomePanel
+import com.dispo.app.ui.LoginScreen
 import com.dispo.app.ui.LooneyRings
 import com.dispo.app.ui.MapScreen
 import com.dispo.app.ui.ProfilePanel
@@ -100,9 +102,23 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DispoApp() {
     val context = LocalContext.current
-    val repository = DispoRepository.get(context)
+    val repository = remember { DispoRepository.get(context) }
     val state by repository.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+
+    if (!state.isLoggedIn) {
+        LoginScreen(
+            isLoading = state.isSyncing,
+            error = state.addFriendFeedback,
+            onLogin = { publicId, password ->
+                scope.launch { repository.login(publicId, password) }
+            },
+            onRegister = { displayName, publicId, password ->
+                scope.launch { repository.register(displayName, publicId, password) }
+            },
+        )
+        return
+    }
 
     val pagerState = rememberPagerState(pageCount = { 3 })
     val tabs = listOf("😀 DISPO", "💬 CHAT", "👤 PROFIL")
@@ -112,9 +128,13 @@ fun DispoApp() {
     var mapOpen by remember { mutableStateOf(false) }
     BackHandler(enabled = mapOpen) { mapOpen = false }
 
-    // À chaque ouverture de l'app : état « pas dispo » par défaut
     LaunchedEffect(Unit) {
         repository.resetDispoOnLaunch()
+        repository.startPolling()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { repository.stopPolling() }
     }
 
     // Ouvre le chat après le burst d’étoiles (sinon le swipe coupe l’anim)
@@ -205,6 +225,9 @@ fun DispoApp() {
                         },
                         onLeaveGroup = { groupId ->
                             scope.launch { repository.leaveGroup(groupId) }
+                        },
+                        onSelectGroup = { groupId ->
+                            scope.launch { repository.setActiveGroup(groupId) }
                         },
                         onClearFeedback = { repository.clearFeedback() },
                     )

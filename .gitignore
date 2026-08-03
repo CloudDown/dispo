@@ -1,4 +1,5 @@
 # Android
+.gradle/
 mobile_app/.gradle/
 mobile_app/**/build/
 mobile_app/local.properties

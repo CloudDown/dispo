@@ -41,7 +41,7 @@ def register(req: RegisterRequest, session: Session = Depends(get_session)):
         raise HTTPException(400, "Mot de passe trop court (min. 4)")
 
     if req.public_id:
-        public_id = req.public_id.strip().upper()
+        public_id = req.public_id.strip().lower()
         if session.exec(select(User).where(User.public_id == public_id)).first():
             raise HTTPException(400, "Cet ID est déjà pris")
     else:

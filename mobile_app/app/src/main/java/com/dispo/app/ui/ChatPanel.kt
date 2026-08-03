@@ -137,6 +137,7 @@ fun ChatPanel(
     onJoinGroup: (String) -> Unit,
     onAddFriendToGroup: (groupId: String, friendId: String) -> Unit,
     onLeaveGroup: (String) -> Unit,
+    onSelectGroup: (String) -> Unit,
     onClearFeedback: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -193,6 +194,7 @@ fun ChatPanel(
                 },
                 onAddFriendToGroup = onAddFriendToGroup,
                 onLeaveGroup = onLeaveGroup,
+                onSelectGroup = onSelectGroup,
             )
         }
     }
@@ -298,6 +300,17 @@ private fun ChatMessagesSection(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        state.activeGroupId?.let { gid ->
+            val groupName = state.groups.find { it.id == gid }?.name
+            if (groupName != null) {
+                LedCaption(
+                    text = "Groupe : $groupName",
+                    fontSize = 18.sp,
+                    color = Gold,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -376,6 +389,7 @@ private fun ChatGroupsSection(
     onCopyCode: (String) -> Unit,
     onAddFriendToGroup: (String, String) -> Unit,
     onLeaveGroup: (String) -> Unit,
+    onSelectGroup: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var joinCodeDraft by remember { mutableStateOf("") }
@@ -499,8 +513,10 @@ private fun ChatGroupsSection(
                     group = group,
                     friends = state.friends,
                     myId = state.profile.id,
+                    isActive = state.activeGroupId == group.id,
                     expanded = expandedGroupId == group.id,
                     onToggle = { onExpandGroup(group.id) },
+                    onSelect = { onSelectGroup(group.id) },
                     onRename = { onRequestRename(group.id) },
                     onCopyCode = { onCopyCode(group.inviteCode) },
                     onAddFriend = { onAddFriendToGroup(group.id, it) },
@@ -568,8 +584,10 @@ private fun GroupRow(
     group: CrewGroup,
     friends: List<Friend>,
     myId: String,
+    isActive: Boolean,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onSelect: () -> Unit,
     onRename: () -> Unit,
     onCopyCode: () -> Unit,
     onAddFriend: (String) -> Unit,
@@ -580,7 +598,11 @@ private fun GroupRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(DarkSurface, CardShape)
-            .border(2.5.dp, DarkBorder.copy(alpha = 0.5f), CardShape)
+            .border(
+                2.5.dp,
+                if (isActive) Gold else DarkBorder.copy(alpha = 0.5f),
+                CardShape,
+            )
             .clickable(onClick = onToggle)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -597,15 +619,24 @@ private fun GroupRow(
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    group.name,
-                    color = DarkText,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
-                    modifier = Modifier.clickable {
-                        onRename()
-                    },
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        group.name,
+                        color = DarkText,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 17.sp,
+                        modifier = Modifier.clickable { onRename() },
+                    )
+                    if (isActive) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "ACTIF",
+                            fontFamily = LedFamily,
+                            fontSize = 14.sp,
+                            color = Gold,
+                        )
+                    }
+                }
                 Text(
                     "${group.memberIds.size} membre${if (group.memberIds.size > 1) "s" else ""}",
                     fontFamily = LedFamily,
@@ -621,6 +652,16 @@ private fun GroupRow(
         }
         if (expanded) {
             HorizontalDivider(color = DarkBorder.copy(alpha = 0.4f))
+            if (!isActive) {
+                Button(
+                    onClick = onSelect,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DispoGreen),
+                ) {
+                    Text("Utiliser pour le chat", color = Cream, fontWeight = FontWeight.SemiBold)
+                }
+            }
             LedCaption(text = "Code à partager", fontSize = 16.sp, color = DarkTextMuted)
             Row(
                 modifier = Modifier

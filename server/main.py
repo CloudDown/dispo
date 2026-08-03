@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
         from seed_dev import seed
 
         seed()
-        print("🎬 Mode démo actif — comptes LEA001 / MAX002 / SAM003 (mdp: demo)")
+        print("🎬 Mode démo actif — comptes lea / max / sam (mdp: demo)")
     print("✅ Dispo API démarrée — http://localhost:8000/docs")
     yield
 

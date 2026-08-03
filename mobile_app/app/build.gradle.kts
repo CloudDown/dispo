@@ -1,7 +1,24 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+val apiBaseUrl: String = (
+    localProperties.getProperty("dispo.api.base.url")
+        ?: "http://10.0.2.2:8000/"
+    ).let { url ->
+        if (url.endsWith("/")) url else "$url/"
+    }
 
 android {
     namespace = "com.dispo.app"
@@ -16,8 +33,9 @@ android {
         applicationId = "com.dispo.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {
@@ -33,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -56,4 +75,10 @@ dependencies {
 
     implementation(libs.osmdroid.android)
     implementation(libs.coil.compose)
+
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.serialization.json)
 }

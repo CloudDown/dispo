@@ -47,7 +47,18 @@ data class DispoUiState(
     val groups: List<CrewGroup> = emptyList(),
     val messages: List<ChatMessage> = emptyList(),
     val addFriendFeedback: String? = null,
+    val isLoggedIn: Boolean = false,
+    val isSyncing: Boolean = false,
+    /** Groupe actif pour le chat / dispo (id serveur en string). */
+    val activeGroupId: String? = null,
+    /** Compteur dispo dans le groupe actif (API). */
+    val groupDispoCount: Int = 0,
 ) {
-    val dispoCount: Int get() = (if (meDispo) 1 else 0) + friends.count { it.dispo }
+    val dispoCount: Int
+        get() = if (activeGroupId != null) {
+            groupDispoCount
+        } else {
+            (if (meDispo) 1 else 0) + friends.count { it.dispo }
+        }
     val chatUnlocked: Boolean get() = dispoCount >= 1
 }

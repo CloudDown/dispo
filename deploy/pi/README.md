@@ -15,7 +15,7 @@ cd /chemin/vers/dispo
 python3 deploy/pi/deploy_paramiko.py
 ```
 
-Variables : `PI_PASS` **obligatoire** (`oeuil/secrets.env` ou `export`). Optionnelles : `PI_HOST`, `PI_USER`, `PI_DIR`, `PI_DATA`.
+Variables : `PI_PASS` **obligatoire** (`scripts/secrets.env` ou `export`). Optionnelles : `PI_HOST`, `PI_USER`, `PI_DIR`, `PI_DATA`.
 
 ## Déploiement manuel
 

@@ -5,7 +5,7 @@ set -euo pipefail
 DISPO_DIR="${DISPO_DIR:-/home/pi/dispo}"
 DATA_DIR="${DISPO_DATA:-/var/lib/dispo}"
 SERVICE_USER="${SERVICE_USER:-pi}"
-SUDO_PASS="${SUDO_PASS:?SUDO_PASS/PI_PASS manquant — export PI_PASS ou oeuil/secrets.env}"
+SUDO_PASS="${SUDO_PASS:?SUDO_PASS/PI_PASS manquant — export PI_PASS ou scripts/secrets.env}"
 DISPO_PORT="${DISPO_PORT:-8000}"
 
 sudo_cmd() {

@@ -1,27 +1,83 @@
 # Dispo 🎪
 
-App Android pour dire à tes potes que tu es dispo jusqu'à la fin de la journée — en un tap.
+Dis à ton crew que **tu es dispo jusqu'à minuit** — en un tap. Chat débloqué dès qu'au moins une personne du groupe est disponible.
 
-Architecture monorepo inspirée de **Vif** : client Android + API FastAPI.
+| Symbole | Sens |
+|---------|------|
+| 🟢 | Dispo jusqu'à minuit |
+| 🔴 | Pas dispo |
+| 💬 | Chat actif (≥ 1 dispo dans le crew) |
+| 📍 | Lieu partagé dans le chat |
 
-## Structure
+App Android **Kotlin / Compose** + API **FastAPI**. Backend h24 sur Raspberry Pi (`:8000`).
 
+**Télécharger** : [Dispo v1.1.0 — APK](https://github.com/CloudDown/dispo/releases/latest)
+
+---
+
+## Installation rapide
+
+### Android (APK)
+
+1. Télécharge l'APK depuis [GitHub Releases](https://github.com/CloudDown/dispo/releases/latest).
+2. Installe sur ton téléphone (sources inconnues si besoin).
+3. Connecte-toi avec un compte démo : `LEA001` / `demo` (ou crée le tien).
+
+### Développeur
+
+```bash
+git clone https://github.com/CloudDown/dispo.git
+cd dispo/mobile_app
+# Ouvrir mobile_app/ dans Android Studio
+./release-github.sh     # build + publish APK
 ```
-dispo/
-├── mobile_app/     # App Android (Compose, widget, chat, carte, profil)
-├── server/         # API FastAPI (auth, amis, groupes, dispo, chat)
-├── dev/            # Exemple d'environnement
-└── start.sh        # Démarre le serveur local
-```
 
-## Serveur
+Backend local :
 
 ```bash
 ./start.sh
 # → http://localhost:8000/docs
 ```
 
-Endpoints principaux :
+Deploy Pi : [`deploy/pi/README.md`](deploy/pi/README.md)
+
+---
+
+## Les 3 écrans
+
+### Accueil — bouton DISPO
+
+![Accueil](docs/screenshots/readme-home.png)
+
+Le cœur de l'app : un gros bouton central style **cirque / cartoon**.
+
+- Tap → **dispo jusqu'à minuit** (vert) ou **pas dispo** (rouge)
+- Animation « rings » Looney autour du bouton
+- Widget home screen pour toggle sans ouvrir l'app
+
+### Chat — crew & lieux
+
+![Chat](docs/screenshots/readme-chat.png)
+
+Messagerie de groupe, débloquée dès qu'**au moins 1** personne est dispo.
+
+- Messages texte entre amis du crew
+- Partage de **lieu** avec vignette carte (tuiles libres, sans clé API)
+- Lien `google.com/maps` ouvrable dans Maps
+
+### Profil — amis & crew
+
+![Profil](docs/screenshots/readme-profile.png)
+
+Gère ton identité et ton réseau.
+
+- Avatar, pseudo, ID public (`MAX002`)
+- Liste d'**amis** avec statut dispo en temps réel
+- Crew : nom + code d'invitation
+
+---
+
+## API
 
 | Préfixe | Rôle |
 |---------|------|
@@ -29,47 +85,17 @@ Endpoints principaux :
 | `/friends` | Ajouter / lister / retirer par ID |
 | `/groups` | Crews + codes d'invitation |
 | `/availability` | Toggle « je suis dispo » |
-| `/chat` | Messages de groupe (débloqué dès 1 dispo) |
+| `/chat` | Messages de groupe |
 
-Comptes démo : `LEA001` / `MAX002` / `SAM003` (mdp `demo`), groupe `CREWDEMO`.
+Comptes démo : `LEA001` / `MAX002` / `SAM003` (mdp `demo`), crew `CREWDEMO`.
 
-## Mobile
-
-### Android Studio
-
-Ouvre **`mobile_app/`** (pas la racine `dispo/`) :
-
-```
-File → Open → /chemin/vers/dispo/mobile_app
-```
-
-Config de lancement fournie : **`app`** (module `dispo.app.main`).  
-Après le sync Gradle, choisis `app` dans la liste Run et lance sur ton appareil.
-
-### Ligne de commande
-
-```bash
-cd mobile_app
-./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-**État actuel** : l'UI et la logique locale (DataStore) fonctionnent offline.
-Le serveur est prêt ; le branchement Retrofit (comme Vif) est la prochaine étape.
-
-Lieux : carte / vignette via tuiles libres (aucune clé API) ; le message contient un
-lien `google.com/maps` ouvrable dans l’app Maps.
-
-## Concept produit
-
-- Gros bouton central : pas dispo → dispo jusqu'à minuit
-- Chat déverrouillé dès qu'**au moins 1** personne du crew est dispo
-- Carte plein écran pour envoyer un lieu (pin + **Envoyer**)
-- Profil : nom, avatar, paramètres (pseudo, ajout d'amis)
+---
 
 ## Stack
 
 | Couche | Techno |
 |--------|--------|
 | Mobile | Kotlin, Jetpack Compose, DataStore, Glance, osmdroid |
-| API | FastAPI, SQLModel, JWT, SQLite (Postgres possible via `DISPO_DATABASE_URL`) |
+| API | FastAPI, SQLModel, JWT, SQLite |
+
+Structure : `mobile_app/` + `server/` + `deploy/pi/`. Conventions agents : [AGENTS.md](AGENTS.md).

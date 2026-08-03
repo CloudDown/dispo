@@ -30,7 +30,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.dispo.app.core.DispoRepository
-import kotlinx.coroutines.flow.first
 
 /**
  * Widget écran d'accueil : le gros bouton Dispo en version miniature.
@@ -50,7 +49,7 @@ class DispoWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repository = DispoRepository.get(context)
-        val dispo = repository.meDispoFlow.first()
+        val dispo = repository.meDispo
 
         provideContent {
             GlanceTheme {
