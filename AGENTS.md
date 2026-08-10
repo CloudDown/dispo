@@ -48,17 +48,12 @@ Android Studio : ouvrir **`mobile_app/`** (pas la racine). Config Run : `app`.
 ```bash
 cd mobile_app
 ./release-github.sh
+./configure-device-api.sh lan   # Wi-Fi — ou usb / emulator / url
 ```
 
-Modes API (via `configure-device-api.sh`) : `pi` · `usb` · `lan` — clé `dispo.api.base.url` dans `local.properties`.
+Modes API : `lan` · `usb` · `emulator` · `url` — clé `dispo.api.base.url` dans `local.properties`.
 
 L'app est branchée au serveur via Retrofit (`mobile_app/.../data/`) + écran login.
-
-## Raspberry Pi (h24)
-
-- Service : `dispo-api` port **8000**
-- Déployer : `python3 deploy/pi/deploy_paramiko.py`
-- Doc : [`deploy/pi/README.md`](deploy/pi/README.md)
 
 ## Conventions
 

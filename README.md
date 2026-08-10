@@ -9,7 +9,7 @@ Dis à ton crew que **tu es dispo jusqu'à minuit** — en un tap. Chat débloqu
 | 💬 | Chat actif (≥ 1 dispo dans le crew) |
 | 📍 | Lieu partagé dans le chat |
 
-App Android **Kotlin / Compose** + API **FastAPI**. Backend h24 sur Raspberry Pi (`:8000`).
+App Android **Kotlin / Compose** + API **FastAPI** (serveur local sur ton PC).
 
 **Télécharger** : [Dispo v1.1.0 — APK](https://github.com/CloudDown/dispo/releases/latest)
 
@@ -20,7 +20,7 @@ App Android **Kotlin / Compose** + API **FastAPI**. Backend h24 sur Raspberry Pi
 ### Android (APK)
 
 1. Télécharge l'APK depuis [GitHub Releases](https://github.com/CloudDown/dispo/releases/latest).
-2. Installe sur ton téléphone (sources inconnues si besoin).
+2. Lance le backend sur ton PC (`./start.sh`) — téléphone et PC sur le **même Wi-Fi**.
 3. Connecte-toi avec un compte démo : `LEA001` / `demo` (ou crée le tien).
 
 ### Développeur
@@ -30,6 +30,7 @@ git clone https://github.com/CloudDown/dispo.git
 cd dispo/mobile_app
 # Ouvrir mobile_app/ dans Android Studio
 ./release-github.sh     # build + publish APK
+./configure-device-api.sh lan   # ou usb / emulator
 ```
 
 Backend local :
@@ -38,8 +39,6 @@ Backend local :
 ./start.sh
 # → http://localhost:8000/docs
 ```
-
-Deploy Pi : [`deploy/pi/README.md`](deploy/pi/README.md)
 
 ---
 
@@ -98,4 +97,4 @@ Comptes démo : `LEA001` / `MAX002` / `SAM003` (mdp `demo`), crew `CREWDEMO`.
 | Mobile | Kotlin, Jetpack Compose, DataStore, Glance, osmdroid |
 | API | FastAPI, SQLModel, JWT, SQLite |
 
-Structure : `mobile_app/` + `server/` + `deploy/pi/`. Conventions agents : [AGENTS.md](AGENTS.md).
+Structure : `mobile_app/` + `server/`. Conventions agents : [AGENTS.md](AGENTS.md).

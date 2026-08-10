@@ -7,4 +7,4 @@ export MOBILE_ROOT="$ROOT"
 export API_KEY="dispo.api.base.url"
 export API_PORT="${DISPO_API_PORT:-8000}"
 export TRAILING_SLASH=yes
-exec "$SCRIPTS/release-github.sh" CloudDown/dispo Dispo pi "${1:-}"
+exec "$SCRIPTS/release-github.sh" CloudDown/dispo Dispo lan "${1:-}"

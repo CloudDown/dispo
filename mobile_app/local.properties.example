@@ -1,8 +1,16 @@
-## Chemin SDK Android
-sdk.dir=/path/to/Android/Sdk
+# Copier vers local.properties (Android Studio → Sync après modification).
 
-## URL de l'API Dispo (trailing slash recommandé pour Retrofit)
-## Émulateur : ./configure-device-api.sh emulator
-## Téléphone USB : ./configure-device-api.sh usb
-## Pi h24 : ./configure-device-api.sh pi  → http://192.168.2.170:8000/
-dispo.api.base.url=http://192.168.2.170:8000/
+sdk.dir=/chemin/vers/Android/Sdk
+
+# ── URL de l'API Dispo (BuildConfig.API_BASE_URL) ───────────────────────────
+#
+# Wi-Fi (PC local, ./start.sh) :
+#   ./configure-device-api.sh lan
+#
+# USB + adb reverse :
+#   ./configure-device-api.sh usb
+#
+# Émulateur :
+#   dispo.api.base.url=http://10.0.2.2:8000/
+
+dispo.api.base.url=http://127.0.0.1:8000/
