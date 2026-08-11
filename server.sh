@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Démarre l'API Dispo en local (layout type Vif).
+# Lance l'API Dispo en local (port 8000).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+PORT="${DISPO_PORT:-8000}"
 cd "$ROOT/server"
 
-# Python 3.13+ recommandé (3.14 casse FastAPI/SQLModel pour l'instant)
 PYTHON=""
 if [ -x "$HOME/.local/share/mise/installs/python/3.13.14/bin/python" ]; then
   PYTHON="$HOME/.local/share/mise/installs/python/3.13.14/bin/python"
@@ -21,4 +21,10 @@ if [ ! -d .venv ]; then
 fi
 
 export DISPO_DEMO_MODE="${DISPO_DEMO_MODE:-1}"
-exec .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+LAN_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1 || true)"
+echo "Dispo API — http://localhost:${PORT}/docs"
+[[ -n "$LAN_IP" ]] && echo "Téléphone (même Wi-Fi) : http://${LAN_IP}:${PORT}/"
+echo
+
+exec .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port "$PORT"

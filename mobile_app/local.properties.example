@@ -2,15 +2,6 @@
 
 sdk.dir=/chemin/vers/Android/Sdk
 
-# ── URL de l'API Dispo (BuildConfig.API_BASE_URL) ───────────────────────────
-#
-# Wi-Fi (PC local, ./start.sh) :
-#   ./configure-device-api.sh lan
-#
-# USB + adb reverse :
-#   ./configure-device-api.sh usb
-#
-# Émulateur :
-#   dispo.api.base.url=http://10.0.2.2:8000/
-
+# URL API compilée dans l'APK au release (./release-github.sh).
+# Dev Android Studio : http://10.0.2.2:8000/ (émulateur)
 dispo.api.base.url=http://127.0.0.1:8000/
