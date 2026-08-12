@@ -3,20 +3,18 @@
 ## Layout
 
 - `server/` — FastAPI, port **8000**, env `DISPO_*`
-- `mobile_app/` — Android Kotlin + Compose (ouvrir ce dossier dans Android Studio)
+- `mobile_app/` — Android Kotlin + Compose
 
 ## Commandes
 
 ```bash
-./server.sh                              # API locale
-./server.sh --ngrok                      # API + tunnel public
-./release-github.sh                      # APK LAN
-./release-github.sh ngrok                # APK ngrok (tunnel déjà actif)
-cd mobile_app && ./gradlew assembleDebug
+./server.sh                 # API + ngrok (défaut)
+./server.sh --local         # sans tunnel
+./release-github.sh         # APK ngrok (défaut)
+./release-github.sh lan     # APK LAN
 ```
 
 ## Conventions
 
 - Routers fins, logique dans `*/service.py`
-- Entrypoint : `server/main.py`, config : `server/config.py`
-- Pas de secrets versionnés (`server/.env.example`)
+- Ouvrir **`mobile_app/`** dans Android Studio

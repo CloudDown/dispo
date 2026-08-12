@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build APK + publie sur GitHub Releases.
-# Usage: ./release-github.sh [lan|ngrok|usb|emulator] [version]
+# Build APK + publie sur GitHub Releases (défaut : ngrok).
+# Usage: ./release-github.sh [ngrok|lan|usb|emulator] [version]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS="$(cd "$ROOT/.." && pwd)/scripts"
-MODE="lan"
+MODE="ngrok"
 VER=""
 if [[ "${1:-}" =~ ^(lan|ngrok|usb|emulator)$ ]]; then
   MODE="$1"
