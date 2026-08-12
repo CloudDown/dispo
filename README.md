@@ -8,16 +8,19 @@ App Android + API FastAPI — « je suis dispo jusqu'à minuit ».
 
 1. **Backend** — sur le PC :
    ```bash
-   ./server.sh
+   ./server.sh            # Wi-Fi local (port 8000)
+   ./server.sh --ngrok    # + tunnel public (4G / hors Wi-Fi)
    ```
-   → `http://localhost:8000/docs`
 
-2. **Publier l'APK** — après des changements mobile :
+2. **Publier l'APK** :
    ```bash
-   ./release-github.sh
+   ./release-github.sh          # APK → IP LAN
+   ./release-github.sh ngrok    # APK → URL ngrok (server --ngrok doit tourner)
    ```
 
-3. **Téléphone** — télécharge l'APK depuis GitHub Releases, même Wi-Fi que le PC.
+3. **Téléphone** — télécharge l'APK depuis GitHub Releases.
+   - LAN : même Wi-Fi que le PC
+   - ngrok : marche en 4G aussi
 
 Comptes démo : `LEA001` / `demo` (crew `CREWDEMO`).
 

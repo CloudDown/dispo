@@ -9,8 +9,10 @@
 
 ```bash
 ./server.sh                              # API locale
-./release-github.sh                      # build + gh release APK
-cd mobile_app && ./gradlew assembleDebug # build seul
+./server.sh --ngrok                      # API + tunnel public
+./release-github.sh                      # APK LAN
+./release-github.sh ngrok                # APK ngrok (tunnel déjà actif)
+cd mobile_app && ./gradlew assembleDebug
 ```
 
 ## Conventions
