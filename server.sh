@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Lance l'API Dispo (port 8000) + ngrok par défaut. Option : --local (sans tunnel).
+# Lance l'API Dispo (port 8000). Cloudflare : https://dispo.instree.org
+# Option : --local (sans rappel tunnel)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS="$(cd "$ROOT/.." && pwd)/scripts"
 PORT="${DISPO_PORT:-8000}"
-USE_NGROK=1
+USE_CF=1
 for arg in "$@"; do
   case "$arg" in
-    --local|--no-ngrok|local) USE_NGROK=0 ;;
-    --ngrok|ngrok) USE_NGROK=1 ;;
+    --local|local) USE_CF=0 ;;
   esac
 done
-[[ "${NGROK:-}" == "0" ]] && USE_NGROK=0
+[[ "${CLOUDFLARE:-}" == "0" ]] && USE_CF=0
 
 cd "$ROOT/server"
 
@@ -32,22 +32,18 @@ fi
 
 export DISPO_DEMO_MODE="${DISPO_DEMO_MODE:-1}"
 
+# shellcheck disable=SC1091
+source "$SCRIPTS/cloudflare-urls.sh"
+PUBLIC_URL="$(cloudflare_public_url dispo)"
+
 LAN_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1 || true)"
 echo "Dispo API — http://localhost:${PORT}/docs"
-[[ -n "$LAN_IP" ]] && echo "LAN (optionnel) : http://${LAN_IP}:${PORT}/"
+[[ -n "$LAN_IP" ]] && echo "LAN : http://${LAN_IP}:${PORT}/"
 
-if [[ "$USE_NGROK" == "1" ]]; then
-  # shellcheck disable=SC1091
-  source "$SCRIPTS/with-ngrok.sh"
-  start_ngrok "$PORT"
-  printf '%s\n' "$NGROK_URL" > "$ROOT/.ngrok-url"
-  echo "Téléphone (ngrok / 4G) : ${NGROK_URL}/"
-  echo "  APK : ./release-github.sh   (cible ngrok par défaut)"
+if [[ "$USE_CF" == "1" ]]; then
+  "$SCRIPTS/cloudflare-tunnel.sh" ensure
+  echo "Public (4G) : ${PUBLIC_URL}/"
 fi
 echo
 
-if [[ "$USE_NGROK" == "1" ]]; then
-  .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port "$PORT"
-else
-  exec .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port "$PORT"
-fi
+exec .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port "$PORT"

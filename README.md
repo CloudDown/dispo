@@ -2,29 +2,18 @@
 
 App Android + API FastAPI — « je suis dispo jusqu'à minuit ».
 
-**APK** : [GitHub Releases](https://github.com/CloudDown/dispo/releases/latest)
+**APK** : [GitHub Releases](https://github.com/CloudDown/dispo/releases/latest)  
+**API publique** : https://dispo.instree.org
 
 ## Utilisation
 
 ```bash
-./server.sh              # API + ngrok (4G OK)
-./release-github.sh      # APK → URL ngrok courante
+./server.sh              # API locale + tunnel Cloudflare
+./release-github.sh      # APK → https://dispo.instree.org/
 ```
 
-Sans tunnel : `./server.sh --local` puis `./release-github.sh lan` (même Wi-Fi).
+LAN seul : `./server.sh --local` puis `./release-github.sh lan`.
 
 Comptes démo : `LEA001` / `demo` (crew `CREWDEMO`).
-
-> L’URL ngrok change à chaque redémarrage → refaire `./release-github.sh` après un nouveau `./server.sh`.
-
-## Structure
-
-```
-dispo/
-├── server.sh
-├── release-github.sh
-├── server/
-└── mobile_app/
-```
 
 Conventions Cursor : [AGENTS.md](AGENTS.md)
