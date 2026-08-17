@@ -33,7 +33,7 @@ android {
         applicationId = "com.dispo.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
+        versionCode = 3
         versionName = "1.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }

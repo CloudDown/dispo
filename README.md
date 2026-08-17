@@ -9,8 +9,10 @@ App Android + API FastAPI — « je suis dispo jusqu'à minuit ».
 
 ```bash
 ./server.sh              # API locale + tunnel Cloudflare
-./release-github.sh      # APK → https://dispo.instree.org/
+./release-github.sh      # APK GitHub + mise à jour in-app (popup téléphone)
 ```
+
+Après `./release-github.sh`, laisse `./server.sh` tourner : au prochain lancement, l'app propose d'installer la nouvelle version.
 
 LAN seul : `./server.sh --local` puis `./release-github.sh lan`.
 

@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             DispoTheme {
                 DispoApp()
+                AppUpdateDialog()
             }
         }
     }

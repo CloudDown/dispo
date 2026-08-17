@@ -26,6 +26,7 @@ from friends.router import router as friends_router
 from groups.router import router as groups_router
 from availability.router import router as availability_router
 from chat.router import router as chat_router
+from app_update import router as app_update_router
 
 
 @asynccontextmanager
@@ -60,6 +61,7 @@ app.include_router(friends_router)
 app.include_router(groups_router)
 app.include_router(availability_router)
 app.include_router(chat_router)
+app.include_router(app_update_router)
 
 
 @app.get("/")

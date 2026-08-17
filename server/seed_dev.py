@@ -36,7 +36,7 @@ def seed():
             created.append(user)
             print(f"  + user {public_id} ({name})")
 
-        # Groupe démo partagé
+        # Groupe démo partagé (crée si besoin, puis assure lea/max/sam membres)
         group = session.exec(select(Group).where(Group.invite_code == "CREWDEMO")).first()
         if not group and created:
             group = Group(
@@ -47,10 +47,20 @@ def seed():
             session.add(group)
             session.commit()
             session.refresh(group)
-            for user in created:
-                session.add(GroupMember(group_id=group.id, user_id=user.id))
-            session.commit()
             print("  + groupe CREWDEMO")
+
+        if group:
+            for user in created:
+                already = session.exec(
+                    select(GroupMember).where(
+                        GroupMember.group_id == group.id,
+                        GroupMember.user_id == user.id,
+                    )
+                ).first()
+                if not already:
+                    session.add(GroupMember(group_id=group.id, user_id=user.id))
+                    print(f"  + membre CREWDEMO @{user.public_id}")
+            session.commit()
 
         # Amis entre eux
         if len(created) >= 2:

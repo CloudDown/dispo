@@ -71,5 +71,10 @@ def get_current_user(
 
 
 def find_user_by_public_id(session: Session, public_id: str) -> Optional[User]:
+    """Lookup insensible à la casse (anciens seeds type LEA001)."""
+    from sqlalchemy import func
+
     pid = public_id.strip().lower()
-    return session.exec(select(User).where(User.public_id == pid)).first()
+    if not pid:
+        return None
+    return session.exec(select(User).where(func.lower(User.public_id) == pid)).first()

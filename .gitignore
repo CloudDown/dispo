@@ -20,6 +20,8 @@ server/*.db
 server/dispo.db
 server/uploads/
 server/.env
+server/app-latest.apk
+server/app-update.json
 *.pyc
 .mise.toml
 .ngrok-url
