@@ -139,12 +139,19 @@ fun ChatPanel(
     onLeaveGroup: (String) -> Unit,
     onSelectGroup: (String) -> Unit,
     onClearFeedback: () -> Unit,
+    openMessagesTick: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     var section by remember { mutableStateOf(ChatSection.Messages) }
     var expandedGroupId by remember { mutableStateOf<String?>(null) }
     var renameGroupId by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+
+    LaunchedEffect(openMessagesTick) {
+        if (openMessagesTick > 0) {
+            section = ChatSection.Messages
+        }
+    }
 
     LaunchedEffect(state.addFriendFeedback) {
         if (state.addFriendFeedback != null) {
@@ -194,7 +201,10 @@ fun ChatPanel(
                 },
                 onAddFriendToGroup = onAddFriendToGroup,
                 onLeaveGroup = onLeaveGroup,
-                onSelectGroup = onSelectGroup,
+                onSelectGroup = { groupId ->
+                    section = ChatSection.Messages
+                    onSelectGroup(groupId)
+                },
             )
         }
     }

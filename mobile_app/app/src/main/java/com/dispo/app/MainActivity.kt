@@ -138,11 +138,13 @@ fun DispoApp() {
         onDispose { repository.stopPolling() }
     }
 
-    // Ouvre le chat après le burst d’étoiles (sinon le swipe coupe l’anim)
+    // Force l’onglet Messages (pas Groupes) quand on ouvre le chat depuis Dispo
+    var openMessagesTick by remember { mutableStateOf(0) }
     val previousUnlocked = remember { mutableStateOf(state.chatUnlocked) }
     LaunchedEffect(state.chatUnlocked) {
         if (state.chatUnlocked && !previousUnlocked.value) {
             if (state.meDispo) delay(STAR_BURST_MS.toLong())
+            openMessagesTick++
             pagerState.animateScrollToPage(1, animationSpec = pageTransition)
         }
         previousUnlocked.value = state.chatUnlocked
@@ -207,6 +209,7 @@ fun DispoApp() {
                     }
                     1 -> ChatPanel(
                         state = state,
+                        openMessagesTick = openMessagesTick,
                         onSend = { text -> repository.sendMessage(text) },
                         onOpenMap = { mapOpen = true },
                         onCreateGroup = { onCreated ->
@@ -334,9 +337,20 @@ fun DispoApp() {
                 DispoButton(
                     dispo = state.meDispo,
                     onToggle = {
+                        val activating = !state.meDispo
+                        val alreadyUnlocked = state.chatUnlocked
                         scope.launch {
                             repository.toggleMeDispo()
                             DispoWidget.refreshAll(context)
+                            // Déjà déverrouillé : le LaunchedEffect ne se relance pas
+                            if (activating && alreadyUnlocked) {
+                                delay(STAR_BURST_MS.toLong())
+                                openMessagesTick++
+                                pagerState.animateScrollToPage(
+                                    1,
+                                    animationSpec = pageTransition,
+                                )
+                            }
                         }
                     },
                     size = buttonSize,
