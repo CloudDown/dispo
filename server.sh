@@ -16,15 +16,18 @@ done
 cd "$ROOT/server"
 
 PYTHON=""
-if [ -x "$HOME/.local/share/mise/installs/python/3.13.14/bin/python" ]; then
-  PYTHON="$HOME/.local/share/mise/installs/python/3.13.14/bin/python"
-elif command -v python3.13 >/dev/null 2>&1; then
+if command -v python3.13 >/dev/null 2>&1; then
   PYTHON="$(command -v python3.13)"
+elif [ -x "$HOME/.local/share/mise/installs/python/3.13/bin/python" ]; then
+  PYTHON="$HOME/.local/share/mise/installs/python/3.13/bin/python"
 else
   PYTHON="$(command -v python3)"
 fi
 
-if [ ! -d .venv ]; then
+# Recrée le venv s'il manque ou si l'interpréteur a bougé (mise upgrade).
+if [ ! -x .venv/bin/python ] || ! .venv/bin/python -c 'import sys' 2>/dev/null; then
+  echo "Recréation du venv (Python: $PYTHON)…"
+  rm -rf .venv
   "$PYTHON" -m venv .venv
   .venv/bin/pip install -U pip
   .venv/bin/pip install -r requirements.txt
